@@ -13,7 +13,6 @@ from openzeppelin.token.erc721.library import (
     ERC721_ownerOf,
     ERC721_getApproved,
     ERC721_isApprovedForAll,
-    ERC721_tokenURI,
     ERC721_initializer,
     ERC721_approve,
     ERC721_setApprovalForAll,
@@ -22,12 +21,12 @@ from openzeppelin.token.erc721.library import (
     ERC721_mint,
     ERC721_burn,
     ERC721_only_token_owner,
-    ERC721_setTokenURI,
 )
+from openzeppelin.token.erc721.tokenURI_library import ERC721_tokenURI, ERC721_setBaseTokenURI
 
 from openzeppelin.introspection.ERC165 import ERC165
 
-from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from openzeppelin.access.ownable import Ownable
 
 #
 # Constructor
@@ -35,10 +34,11 @@ from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    name : felt, symbol : felt, owner : felt
+    name : felt, symbol : felt, owner : felt, tokenURI_len : felt, tokenURI : felt*
 ):
     ERC721_initializer(name, symbol)
-    Ownable_initializer(owner)
+    Ownable.initializer(owner)
+    ERC721_setBaseTokenURI(tokenURI_len, tokenURI)
     return ()
 end
 
@@ -50,7 +50,7 @@ end
 func supportsInterface{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     interfaceId : felt
 ) -> (success : felt):
-    let (success) = ERC165.register_interface(interfaceId)
+    let (success) = ERC165.supports_interface(interfaceId)
     return (success)
 end
 
@@ -101,9 +101,9 @@ end
 @view
 func tokenURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     tokenId : Uint256
-) -> (tokenURI : felt):
-    let (tokenURI : felt) = ERC721_tokenURI(tokenId)
-    return (tokenURI)
+) -> (tokenURI_len : felt, tokenURI : felt*):
+    let (tokenURI_len : felt, tokenURI : felt*) = ERC721_tokenURI(tokenId)
+    return (tokenURI_len=tokenURI_len, tokenURI=tokenURI)
 end
 
 #
@@ -144,10 +144,10 @@ end
 
 @external
 func setTokenURI{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, tokenURI : felt
+    tokenURI_len : felt, tokenURI : felt*
 ):
-    Ownable_only_owner()
-    ERC721_setTokenURI(tokenId, tokenURI)
+    Ownable.assert_only_owner()
+    ERC721_setBaseTokenURI(tokenURI_len, tokenURI)
     return ()
 end
 
@@ -155,7 +155,7 @@ end
 func mint{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     to : felt, tokenId : Uint256
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     ERC721_mint(to, tokenId)
     return ()
 end
