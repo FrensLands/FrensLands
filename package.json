@@ -1,0 +1,29 @@
+{
+  "name": "hackathon-cairo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/irisdv/hackathon-cairo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/irisdv/hackathon-cairo/issues"
+  },
+  "homepage": "https://github.com/irisdv/hackathon-cairo#readme",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.6",
+    "@shardlabs/starknet-hardhat-plugin": "^0.6.0",
+    "@types/chai": "^4.3.1",
+    "@types/mocha": "^9.1.1",
+    "chai": "^4.3.6",
+    "dotenv": "^16.0.1",
+    "ts-node": "^10.8.2",
+    "typescript": "^4.7.4"
+  }
+}
