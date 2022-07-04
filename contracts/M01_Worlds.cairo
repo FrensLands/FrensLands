@@ -93,7 +93,7 @@ end
 @external
 func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256
-) -> (success : felt):
+) -> ():
     let (caller) = get_caller_address()
     let (controller) = Module.get_controller()
     let (m01_contract) = get_contract_address()
@@ -123,7 +123,7 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
 
     # TODO : Initialize the values of the map to render the world
 
-    return (1)
+    return ()
 end
 
 ######################

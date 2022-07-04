@@ -193,5 +193,24 @@ describe("Starknet", function () {
     }
   });
 
-  it("Start new game", async function () {});
+  it("Start new game", async function () {
+    // Account1 needs to set approval first
+    await account1.invoke(MapsERC721Contract, "setApprovalForAll", {
+      operator: M01Contract.address,
+      approved: 1,
+    });
+
+    // Call start game
+    await account1.invoke(M01Contract, "start_game", {
+      tokenId: { low: 1, high: 0 },
+    });
+    const { owner } = await accountArbitrer.call(
+      MapsERC721Contract,
+      "ownerOf",
+      { tokenId: { low: 1, high: 0 } }
+    );
+    expect("0x0" + BigInt(owner).toString(16)).to.deep.equal(
+      M01Contract.address
+    );
+  });
 });

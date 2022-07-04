@@ -101,6 +101,9 @@ async def test_set_up_MC(admin, user_one, arbitrer, m01, module_controller, maps
     assert(await maps_erc721.ownerOf(to_uint(1)).call()).result == (user_one.contract_address,)
 
     # Test start_game in M01_Worlds
+    # Firs user1 needs to setApproval
+    await user1.send_transaction(user_one, maps_erc721.contract_address, "setApprovalForAll", [m01.contract_address, 1])
+
     await user1.send_transaction(user_one, m01.contract_address, "start_game", [1, 0])
     assert(await maps_erc721.ownerOf(to_uint(1)).call()).result == (m01.contract_address,)
 
