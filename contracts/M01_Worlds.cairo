@@ -9,8 +9,10 @@ from starkware.starknet.common.syscalls import (
 )
 from starkware.cairo.common.uint256 import Uint256
 
-from contracts.utils.game_structs import ModuleIds, ExternalContractsIds
-from contracts.utils.tokens_interfaces import IERC721Maps
+from contracts.utils.game_structs import ModuleIds, ExternalContractsIds, MapsPrice
+from contracts.utils.game_constants import GOLD_START
+
+from contracts.utils.tokens_interfaces import IERC721Maps, IERC20Gold
 from contracts.utils.interfaces import IModuleController
 from contracts.library.library_module import Module
 
@@ -102,6 +104,9 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     let (maps_erc721_addr) = IModuleController.get_external_contract_address(
         controller, ExternalContractsIds.Maps
     )
+    let (gold_erc20_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Gold
+    )
 
     # Check caller is owner of tokenId
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
@@ -122,6 +127,10 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     NewGame.emit(caller, tokenId)
 
     # TODO : Initialize the values of the map to render the world
+
+    # Mint some Gold (minus the price of the map)
+    let (amount : Uint256) = Uint256(1000, 0)
+    IERC20Gold.mint(gold_erc20_addr, caller, amount)
 
     return ()
 end

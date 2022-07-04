@@ -11,8 +11,13 @@ from starkware.starknet.testing.contract import StarknetContract
 ACCOUNT_FILE = os.path.join("openzeppelin", "account", "Account.cairo")
 ARBITRER_FILE = os.path.join("contracts", "Arbitrer.cairo")
 MODULE_CONTROLLER_FILE = os.path.join("contracts", "ModuleController.cairo")
+
+# External contracts
 MINTER_MAPS_ERC721_FILE = os.path.join("contracts", "tokens", "Minter_Maps_ERC721.cairo")
 MAPS_ERC721_FILE = os.path.join("contracts", "tokens", "Maps_ERC721_enumerable_mintable_burnable.cairo")
+GOLD_ERC20_FILE = os.path.join("contracts", "tokens", "Gold_ERC20_Mintable_Burnable.cairo")
+
+# Modules
 M01_MODULE =  os.path.join("contracts", "M01_Worlds.cairo")
 
 owner = Signer(123456789987654321)
@@ -35,6 +40,7 @@ async def user_one(starknet: StarknetContract) -> StarknetContract:
         source=ACCOUNT_FILE,
         constructor_calldata=[user1.public_key])
 
+# Deploy external contracts 
 @pytest_asyncio.fixture
 async def minter_maps_erc721(starknet: StarknetContract, admin: StarknetContract):
     return await starknet.deploy(
@@ -55,6 +61,21 @@ async def maps_erc721(starknet: StarknetContract, minter_maps_erc721: StarknetCo
         ])
 
 @pytest_asyncio.fixture
+async def gold_erc20(starknet: StarknetContract, admin: StarknetContract, m01: StarknetContract):
+    return await starknet.deploy(
+        source=GOLD_ERC20_FILE,
+        constructor_calldata=[
+            str_to_felt("Gold"), 
+            str_to_felt("GG"), 
+            18,
+            0,
+            0,
+            m01.contract_address,
+            m01.contract_address
+        ])
+
+# Deploy moduels 
+@pytest_asyncio.fixture
 async def m01(starknet: StarknetContract, admin: StarknetContract):
     return await starknet.deploy(
         source=M01_MODULE)
@@ -66,10 +87,21 @@ async def arbitrer(starknet: StarknetContract, admin: StarknetContract):
         constructor_calldata=[admin.contract_address])
 
 @pytest_asyncio.fixture
-async def module_controller(starknet: StarknetContract, arbitrer: StarknetContract, maps_erc721: StarknetContract, minter_maps_erc721: StarknetContract):
+async def module_controller(
+    starknet: StarknetContract, 
+    arbitrer: StarknetContract, 
+    maps_erc721: StarknetContract, 
+    minter_maps_erc721: StarknetContract, 
+    gold_erc20: StarknetContract
+    ):
     return await starknet.deploy(
         source=MODULE_CONTROLLER_FILE,
-        constructor_calldata=[arbitrer.contract_address, maps_erc721.contract_address, minter_maps_erc721.contract_address])
+        constructor_calldata=[
+            arbitrer.contract_address, 
+            maps_erc721.contract_address, 
+            minter_maps_erc721.contract_address, 
+            gold_erc20.contract_address
+        ])
 
 
 @pytest.mark.asyncio

@@ -1,1 +1,2 @@
 const DAY_LENGTH = 2
+const GOLD_START = 1000
