@@ -38,11 +38,11 @@ describe("Starknet", function () {
     console.log("Account 1 :  ", account1.address);
   });
 
-  // ---------  DEPLOY MAPS ERC721 CONTRACT AND MINTER  ---------
+  // ---------  DEPLOY MAPS EXTERNAL CONTRACTS  ---------
   it("Deploy Maps_ERC721 and minter ", async function () {
     // Deploy Minter Maps Contract
     MinterMapsER721ContractFactory = await starknet.getContractFactory(
-      "tokens/Maps_ERC721_minter"
+      "tokens/Minter_Maps_ERC721"
     );
     MinterMapsER721Contract = await MinterMapsER721ContractFactory.deploy({
       admin: accountArbitrer.address,
@@ -54,19 +54,19 @@ describe("Starknet", function () {
       "tokens/Maps_ERC721_enumerable_mintable_burnable"
     );
     MapsERC721Contract = await MapsER721ContractFactory.deploy({
-      name: 1952805748, // "test"
-      symbol: 21588, // "TT"
+      name: starknet.shortStringToBigInt("test_name"),
+      symbol: starknet.shortStringToBigInt("TT"),
       owner: MinterMapsER721Contract.address,
       tokenURI: [
-        "1784348726136159628901492144555",
-        "8836189228152314246964477678196",
-        "0977025785677824071683945718526",
-        "9971642739250023220843052540810",
-        "8906",
+        starknet.shortStringToBigInt("ipfs://faeljfalifhail"),
+        starknet.shortStringToBigInt("hdiahdihfjebfjlabfljaflaflajf"),
       ],
     });
     console.log("Maps ERC721 contract deployed at", MapsERC721Contract.address);
   });
+
+  // ---------  DEPLOY MODULES CONTRACTS  ---------
+  it("Deploy Modules contracts", async function () {});
 
   it("Deploy and initialize Arbitrer and ModuleController", async function () {
     // Deploy Arbitrer contract

@@ -7,7 +7,7 @@ from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 from starkware.cairo.common.uint256 import Uint256, uint256_add
 
 from contracts.utils.interfaces import IModuleController
-from contracts.tokens.tokens_interfaces import IERC721Maps
+from contracts.utils.tokens_interfaces import IERC721Maps
 
 ###########
 # STORAGE #
@@ -71,7 +71,9 @@ func mint_all{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
 ):
     let (admin) = maps_erc721_admin.read()
     let (caller) = get_caller_address()
-    assert admin = caller
+    with_attr error_message("Maps ERC721: caller is not the admin."):
+        assert admin = caller
+    end
 
     if nb == 0:
         return ()
@@ -86,37 +88,6 @@ func mint_all{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     mint_all(nb - 1, next_id)
     return ()
 end
-
-# @external
-# func set_token_uri_all{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-#     token_uri_len : felt, token_uri : felt*
-# ):
-#     let (admin) = maps_erc721_admin.read()
-#     let (caller) = get_caller_address()
-#     assert admin = caller
-
-# _set_token_uri(token_uri_len, token_uri, Uint256(1, 0))
-
-# return ()
-# end
-
-# func _set_token_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-#     token_uri_len : felt, token_uri : felt*, id : Uint256
-# ):
-#     if token_uri_len == 0:
-#         return ()
-#     end
-
-# let (maps_erc721_contract_addr) = maps_erc721_address.read()
-
-# IERC721Maps.setTokenURI(maps_erc721_contract_addr, id, [token_uri])
-
-# let (next_id, _) = uint256_add(id, Uint256(1, 0))
-
-# _set_token_uri(token_uri_len - 1, token_uri - 1, next_id)
-
-# return ()
-# end
 
 ##################
 # VIEW FUNCTIONS #

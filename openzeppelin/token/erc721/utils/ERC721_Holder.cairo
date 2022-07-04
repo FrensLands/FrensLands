@@ -1,26 +1,24 @@
 # SPDX-License-Identifier: MIT
-# OpenZeppelin Cairo Contracts v0.1.0 (token/erc721/utils/ERC721_Holder.cairo)
+# OpenZeppelin Contracts for Cairo v0.2.0 (token/erc721/utils/ERC721_Holder.cairo)
 
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
 from starkware.cairo.common.uint256 import Uint256
 
-from openzeppelin.introspection.ERC165 import (
-    ERC165_supports_interface,
-    ERC165_register_interface
-)
+from openzeppelin.utils.constants import IERC721_RECEIVER_ID
+
+from openzeppelin.introspection.ERC165 import ERC165
 
 @view
 func onERC721Received(
         operator: felt,
-        _from: felt,
+        from_: felt,
         tokenId: Uint256,
         data_len: felt,
         data: felt*
     ) -> (selector: felt): 
-    # ERC721_RECEIVER_ID = 0x150b7a02
-    return (0x150b7a02)
+    return (IERC721_RECEIVER_ID)
 end
 
 @view
@@ -29,7 +27,7 @@ func supportsInterface{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(interfaceId: felt) -> (success: felt):
-    let (success) = ERC165_supports_interface(interfaceId)
+    let (success) = ERC165.supports_interface(interfaceId)
     return (success)
 end
 
@@ -39,7 +37,6 @@ func constructor{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }():
-    # ERC721_RECEIVER_ID = 0x150b7a02
-    ERC165_register_interface(0x150b7a02)
+    ERC165.register_interface(IERC721_RECEIVER_ID)
     return ()
 end
