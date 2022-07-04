@@ -192,4 +192,6 @@ describe("Starknet", function () {
       //   expect(err.message).to.equal("Maps ERC721: caller is not the admin.");
     }
   });
+
+  it("Start new game", async function () {});
 });

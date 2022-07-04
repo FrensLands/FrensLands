@@ -5,6 +5,7 @@ from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_block_timestamp,
     get_contract_address,
+    get_block_number,
 )
 from starkware.cairo.common.uint256 import Uint256
 
@@ -27,21 +28,21 @@ end
 func nb_games() -> (amount : felt):
 end
 
-# Number of on-going games
-@storage_var
-func index_maps(map_type : felt) -> (index : felt):
-end
+# # Number of on-going games
+# @storage_var
+# func index_maps(map_type : felt) -> (index : felt):
+# end
 
 ##########
 # EVENTS #
 ##########
 
 @event
-func new_game(owner : felt, token_id : Uint256):
+func NewGame(owner : felt, token_id : Uint256):
 end
 
 @event
-func end_game(owner : felt, token_id : Uint256):
+func EndGame(owner : felt, token_id : Uint256):
 end
 
 ###############
@@ -89,19 +90,41 @@ func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     return ()
 end
 
-# @external
-# func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> (success : felt):
-#     # Check que user à ce NFT de map
-#     # Stake le NFT dans ce contrat
-#     # Emet un staked_NFT
-#     # Emet event start game
-#     # Save block time
-#     # Initialize the values of the map to render the world
+@external
+func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> (success : felt):
+    let (caller) = get_caller_address()
+    let (controller) = Module.get_controller()
+    let (m01_contract) = get_contract_address()
 
-# return ()
-# end
+    # Fetch external contracts addresses
+    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Maps
+    )
+
+    # Check caller is owner of tokenId
+    let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
+    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
+        assert owner = caller
+    end
+
+    # Stake Map_ERC721 in M01 contract
+    IERC721Maps.transferFrom(maps_erc721_addr, caller, m01_contract, tokenId)
+
+    # TODO : Mint S_Map_ERC721 and transfer to caller
+
+    # Save block number of gameStart
+    let (block_number) = get_block_number()
+    start_block.write(tokenId, block_number)
+
+    # Emit NewGame event
+    NewGame.emit(caller, tokenId)
+
+    # TODO : Initialize the values of the map to render the world
+
+    return (1)
+end
 
 ######################
 # INTERNAL FUNCTIONS #
