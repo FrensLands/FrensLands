@@ -115,13 +115,11 @@ end
 @external
 func batch_set_controller_addresses{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(module_01_addr : felt):
+}(m01_addr : felt):
     Ownable.assert_only_owner()
     let (controller) = controller_address.read()
 
-    IModuleController.set_initial_module_addresses(
-        contract_address=controller, module_01_addr=module_01_addr
-    )
+    IModuleController.set_initial_module_addresses(contract_address=controller, m01_addr=m01_addr)
 
     return ()
 end

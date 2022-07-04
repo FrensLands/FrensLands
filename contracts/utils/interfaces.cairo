@@ -12,13 +12,16 @@ namespace IModuleController:
     func has_write_access(address_attempting_to_write : felt) -> (success : felt):
     end
 
+    func get_external_contract_address(external_contract_id : felt) -> (address : felt):
+    end
+
     func appoint_new_arbitrer(new_arbitrer : felt):
     end
 
     func set_address_for_module_id(module_id : felt, module_address : felt):
     end
 
-    func set_initial_module_addresses(module_01_addr : felt):
+    func set_initial_module_addresses(m01_addr : felt):
     end
 
     func set_write_access(module_id_doing_writing : felt, module_id_being_written_to : felt):

@@ -13,11 +13,13 @@ describe("Starknet", function () {
   let ArbitrerContractFactory: StarknetContractFactory,
     MCContractFactory: StarknetContractFactory,
     MapsER721ContractFactory: StarknetContractFactory,
-    MinterMapsER721ContractFactory: StarknetContractFactory;
+    MinterMapsER721ContractFactory: StarknetContractFactory,
+    M01ContractFactory: StarknetContractFactory;
   let ArbitrerContract: StarknetContract,
     MCContract: StarknetContract,
     MapsERC721Contract: StarknetContract,
-    MinterMapsER721Contract: StarknetContract;
+    MinterMapsER721Contract: StarknetContract,
+    M01Contract: StarknetContract;
   let accountArbitrer: Account, account1: Account;
 
   // ---------  FETCH ACCOUNT TO USE ON STARKNET-DEVNET  ---------
@@ -38,7 +40,7 @@ describe("Starknet", function () {
     console.log("Account 1 :  ", account1.address);
   });
 
-  // ---------  DEPLOY MAPS EXTERNAL CONTRACTS  ---------
+  // ---------  DEPLOY EXTERNAL CONTRACTS  ---------
   it("Deploy Maps_ERC721 and minter ", async function () {
     // Deploy Minter Maps Contract
     MinterMapsER721ContractFactory = await starknet.getContractFactory(
@@ -66,7 +68,11 @@ describe("Starknet", function () {
   });
 
   // ---------  DEPLOY MODULES CONTRACTS  ---------
-  it("Deploy Modules contracts", async function () {});
+  it("Deploy Modules contracts", async function () {
+    M01ContractFactory = await starknet.getContractFactory("M01_Worlds");
+    M01Contract = await M01ContractFactory.deploy();
+    console.log("M01 contract deployed at", M01Contract.address);
+  });
 
   it("Deploy and initialize Arbitrer and ModuleController", async function () {
     // Deploy Arbitrer contract
@@ -79,7 +85,7 @@ describe("Starknet", function () {
     // Deploy ModuleController contract
     MCContractFactory = await starknet.getContractFactory("ModuleController");
     MCContract = await MCContractFactory.deploy({
-      arbitrer_address: accountArbitrer.address,
+      arbitrer_address: ArbitrerContract.address,
       _maps_address: MapsERC721Contract.address,
       _minter_maps_address: MinterMapsER721Contract.address,
     });
@@ -98,7 +104,21 @@ describe("Starknet", function () {
       MCContract,
       "get_arbitrer"
     );
-    expect(arbitrerAddr).to.deep.equal(BigInt(accountArbitrer.address));
+    expect(arbitrerAddr).to.deep.equal(BigInt(ArbitrerContract.address));
+
+    // Initialize Modules in MC through Arbitrer contract
+    await accountArbitrer.invoke(
+      ArbitrerContract,
+      "batch_set_controller_addresses",
+      {
+        m01_addr: M01Contract.address,
+      }
+    );
+
+    // Initialize M01 module with controller address
+    await accountArbitrer.invoke(M01Contract, "initializer", {
+      address_of_controller: MCContract.address,
+    });
   });
 
   it("Initialize Minter contract & Mint NFTs", async function () {
@@ -122,13 +142,12 @@ describe("Starknet", function () {
       MinterMapsER721Contract,
       "set_maps_erc721_approval",
       {
-        operator: accountArbitrer.address,
+        operator: M01Contract.address,
         approved: 1,
       }
     );
-    // TODO: modifier pour que l'operator soit le contrat 01 et non le MC controller
 
-    // Set approval for all & Mint Batch of NFTs
+    // Mint Batch of NFTs
     await accountArbitrer.invoke(MinterMapsER721Contract, "mint_all", {
       nb: 10,
       token_id: { low: 1, high: 0 },
@@ -148,8 +167,29 @@ describe("Starknet", function () {
     );
     console.log("balance of Arbitrer", balance);
   });
-});
 
-// Arbitrer can mint all with uri_token_addr
-// Check another account cannot mint ERC721
-// Check que depuis le module 01 on peut mint de nouveaux ERC721, les burn, les transférer
+  it("Transfer NFT to player from M01 contract", async function () {
+    // Call get_map in M01 controller
+    await account1.invoke(M01Contract, "get_map", {
+      tokenId: { low: 1, high: 0 },
+    });
+
+    // Check account 1 is owner of tokenId = (1, 0)
+    const { owner } = await accountArbitrer.call(
+      MapsERC721Contract,
+      "ownerOf",
+      { tokenId: { low: 1, high: 0 } }
+    );
+    expect("0x" + BigInt(owner).toString(16)).to.deep.equal(account1.address);
+
+    // Check account1 can't mint a second map
+    try {
+      await account1.invoke(M01Contract, "get_map", {
+        tokenId: { low: 2, high: 0 },
+      });
+      expect.fail("Account1 has already minted a map");
+    } catch (err: any) {
+      //   expect(err.message).to.equal("Maps ERC721: caller is not the admin.");
+    }
+  });
+});

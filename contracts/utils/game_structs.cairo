@@ -6,7 +6,7 @@ struct MapData:
 end
 
 namespace ModuleIds:
-    const M01_World = 1
+    const M01_Worlds = 1
 end
 
 namespace ExternalContractsIds:

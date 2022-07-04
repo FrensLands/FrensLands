@@ -84,10 +84,12 @@ end
 @external
 func set_initial_module_addresses{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(module_01_addr : felt):
+}(m01_addr : felt):
     only_arbitrer()
 
     # for each module update the storage_vars module_id_of_address & address_of_module_id
+    module_id_of_address.write(address=m01_addr, value=ModuleIds.M01_Worlds)
+    address_of_module_id.write(module_id=ModuleIds.M01_Worlds, value=m01_addr)
 
     return ()
 end
@@ -131,6 +133,14 @@ func get_arbitrer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
 ):
     let (arbitrer_addr) = arbitrer.read()
     return (arbitrer_addr)
+end
+
+@view
+func get_external_contract_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(external_contract_id : felt) -> (address : felt):
+    let (address) = external_contracts.read(external_contract_id)
+    return (address)
 end
 
 ######################
