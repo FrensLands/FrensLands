@@ -8,6 +8,7 @@ from starkware.starknet.common.syscalls import (
     get_block_number,
 )
 from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.alloc import alloc
 
 from contracts.utils.game_structs import ModuleIds, ExternalContractsIds, MapsPrice
 from contracts.utils.game_constants import GOLD_START
@@ -30,10 +31,15 @@ end
 func nb_games() -> (amount : felt):
 end
 
-# # Number of on-going games
-# @storage_var
-# func index_maps(map_type : felt) -> (index : felt):
-# end
+# Ground type for map
+@storage_var
+func map_ground_type(token_id : Uint256, x : felt, y : felt) -> (type : felt):
+end
+
+# Map Resources
+@storage_var
+func map_resources(token_id : Uint256, x : felt, y : felt) -> (id : felt):
+end
 
 ##########
 # EVENTS #
@@ -58,10 +64,6 @@ func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_p
     Module.initialize_controller(address_of_controller)
     return ()
 end
-
-##################
-# VIEW FUNCTIONS #
-##################
 
 ######################
 # EXTERNAL FUNCTIONS #
@@ -129,8 +131,8 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     # TODO : Initialize the values of the map to render the world
 
     # Mint some Gold (minus the price of the map)
-    let (amount : Uint256) = Uint256(1000, 0)
-    IERC20Gold.mint(gold_erc20_addr, caller, amount)
+    # let (amount : Uint256) = Uint256(1000, 0)
+    # IERC20Gold.mint(gold_erc20_addr, caller, amount)
 
     return ()
 end
