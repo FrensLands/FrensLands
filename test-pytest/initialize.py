@@ -138,5 +138,3 @@ async def test_set_up_MC(admin, user_one, arbitrer, m01, module_controller, maps
 
     await user1.send_transaction(user_one, m01.contract_address, "start_game", [1, 0])
     assert(await maps_erc721.ownerOf(to_uint(1)).call()).result == (m01.contract_address,)
-
-

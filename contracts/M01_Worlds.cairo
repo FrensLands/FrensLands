@@ -7,12 +7,13 @@ from starkware.starknet.common.syscalls import (
     get_contract_address,
     get_block_number,
 )
-from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.uint256 import Uint256, uint256_sub
+from starkware.cairo.common.alloc import alloc
 
 from contracts.utils.game_structs import ModuleIds, ExternalContractsIds, MapsPrice
 from contracts.utils.game_constants import GOLD_START
 
-from contracts.utils.tokens_interfaces import IERC721Maps, IERC20Gold
+from contracts.utils.tokens_interfaces import IERC721Maps, IERC721S_Maps, IERC20Gold
 from contracts.utils.interfaces import IModuleController
 from contracts.library.library_module import Module
 
@@ -25,15 +26,29 @@ from contracts.library.library_module import Module
 func start_block(token_id : Uint256) -> (block : felt):
 end
 
+@storage_var
+func last_block(token_id : Uint256) -> (block : felt):
+end
+
+# state = 0 = game paused, state = 1 = ongoing game
+@storage_var
+func game_state(token_id : Uint256) -> (state : felt):
+end
+
 # Number of on-going games
 @storage_var
 func nb_games() -> (amount : felt):
 end
 
-# # Number of on-going games
-# @storage_var
-# func index_maps(map_type : felt) -> (index : felt):
-# end
+# Ground type for map
+@storage_var
+func map_ground_type(token_id : Uint256, x : felt, y : felt) -> (type : felt):
+end
+
+# Map Resources
+@storage_var
+func map_resources(token_id : Uint256, x : felt, y : felt) -> (id : felt):
+end
 
 ##########
 # EVENTS #
@@ -58,10 +73,6 @@ func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_p
     Module.initialize_controller(address_of_controller)
     return ()
 end
-
-##################
-# VIEW FUNCTIONS #
-##################
 
 ######################
 # EXTERNAL FUNCTIONS #
@@ -104,6 +115,9 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     let (maps_erc721_addr) = IModuleController.get_external_contract_address(
         controller, ExternalContractsIds.Maps
     )
+    let (s_maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.S_Maps
+    )
     let (gold_erc20_addr) = IModuleController.get_external_contract_address(
         controller, ExternalContractsIds.Gold
     )
@@ -118,10 +132,13 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     IERC721Maps.transferFrom(maps_erc721_addr, caller, m01_contract, tokenId)
 
     # TODO : Mint S_Map_ERC721 and transfer to caller
+    IERC721S_Maps.mint(s_maps_erc721_addr, caller, tokenId)
 
     # Save block number of gameStart
     let (block_number) = get_block_number()
     start_block.write(tokenId, block_number)
+    last_block.write(tokenId, block_number)
+    game_state.write(tokenId, 1)
 
     # Emit NewGame event
     NewGame.emit(caller, tokenId)
@@ -129,12 +146,88 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     # TODO : Initialize the values of the map to render the world
 
     # Mint some Gold (minus the price of the map)
-    let (amount : Uint256) = Uint256(1000, 0)
+    let (amount : Uint256) = uint256_sub(Uint256(GOLD_START, 0), Uint256(MapsPrice.Map_1, 0))
+    %{ print ('Gold amount to mint : ',  ids.amount) %}
     IERC20Gold.mint(gold_erc20_addr, caller, amount)
 
     return ()
 end
 
+@external
+func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    # Checks ?
+    _pause_game(tokenId)
+    return ()
+end
+
+@external
+func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    # Checks ?
+    # Needs to setApproval before saving_map
+    _pause_game(tokenId)
+    # Fetch data needed for MapsERC721 new mint
+    # Burn Maps
+    # Mint Map with new updated_data
+    # Burn S_map
+    return ()
+end
+
+@external
+func reinitialize_world{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    # Regen maps resources by blocks
+    # Burn resources, and tokens left and restart from scratch
+    # Need setApprovalForAll before
+    return ()
+end
+
+##################
+# VIEW FUNCTIONS #
+##################
+
+@view
+func get_game_status{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> (state : felt):
+    let (state) = game_state.read(tokenId)
+    return (state)
+end
+
+@view
+func get_latest_block{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> (block_number : felt):
+    let (block_number) = last_block.read(tokenId)
+    return (block_number)
+end
+
 ######################
 # INTERNAL FUNCTIONS #
 ######################
+
+func _pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    let (caller) = get_caller_address()
+    let (controller) = Module.get_controller()
+
+    let (s_maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.S_Maps
+    )
+    # Check caller is owner of tokenId
+    let (owner : felt) = IERC721S_Maps.ownerOf(s_maps_erc721_addr, tokenId)
+    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
+        assert owner = caller
+    end
+
+    let (block_number) = get_block_number()
+    last_block.write(tokenId, block_number)
+    game_state.write(tokenId, 0)
+
+    return ()
+end

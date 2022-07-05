@@ -1,12 +1,16 @@
 %lang starknet
 
 struct MapData:
-    member size_x : felt
-    member size_y : felt
+    member blocks_x : felt
+    member blocks_y : felt
+    member time_start : felt  # à voir car déjà storage_var
 end
 
 namespace ModuleIds:
     const M01_Worlds = 1
+    const M02_Resources = 2
+    const M03_Buildings = 3
+    const M04_Calculation = 4
 end
 
 namespace ExternalContractsIds:
@@ -18,6 +22,20 @@ end
 
 namespace MapGroundType:
     const Grass = 1
+    const Sand = 2
+    const Rock = 3
+end
+
+namespace ResourcesType:
+    const Wood = 1
+    const Rock = 2
+    const Meat = 3
+    const Vegetables = 4
+    const Cereal = 5
+    const Metal = 6
+    const Copper = 7
+    const Coal = 8
+    const Phosphore = 9
 end
 
 namespace MapsPrice:
@@ -28,5 +46,85 @@ namespace MapsPrice:
     const Map_5 = 500
 end
 
-# Building : Cabane
-# Events Id
+namespace BuildingIds:
+    const Cabine = 1
+    const Boulangerie = 2
+    const Mall = 3
+    const GroceryShop = 4
+    const Restaurant = 5
+    const CerealFarm = 6
+    const VegetableFarm = 7
+    const CowFarm = 8
+    const TreeFarm = 9
+    const Mine = 10
+    const Market = 11
+    const CoalPlant = 12
+    const Cinema = 13
+    const Bar = 14
+    const Library = 15
+    const SwimmingPool = 16
+    const PoliceStation = 17
+    const House = 18
+    const Appartment = 19
+    const Hotel = 20
+    const Lab = 21
+    const Hospital = 22
+end
+
+# Fixed data for each building by type
+struct BuildingFixedData:
+    # member type_id : felt pas besoin car utilisé dans storage_var
+    member upgrade_cost : Cost
+    member daily_cost : Cost
+    member daily_harvest : Cost
+    member pop_max : felt
+    member pop_min : felt
+end
+
+struct BuildingData:
+    # member id : felt -> idem dans storage_var
+    member type_id : felt
+    member level : felt
+    member pop : felt
+    member time_created : felt
+    member last_repair : felt
+end
+
+struct Cost:
+    member resources_id : felt
+    member resources_qty : felt
+    member gold_qty : felt
+    member energy_qty : felt
+end
+
+struct HarvestResourceBuilding:
+    member resource_id : felt
+    member resource_qty : felt
+end
+
+# struct ResourcesData:
+#     member gold : felt
+#     member wood : felt
+#     member rock : felt
+#     member meat : felt
+#     member vegetables : felt
+#     member cereal : felt
+#     member metal : felt
+#     member copper : felt
+#     member coal : felt
+#     member phosphore : felt
+# end
+
+# struct Gabelous:
+#     member gabelous_type : felt
+#     member daily_cost : Cost
+# end
+
+# namespace GabelousTypes:
+#     const Owner = 1
+#     const Mayor = 2
+# end
+
+namespace EventsIds:
+    const Event1 = 1
+end

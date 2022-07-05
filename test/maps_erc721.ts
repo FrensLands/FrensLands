@@ -144,6 +144,3 @@ describe("Starknet", function () {
     }
   });
 });
-
-// Check another account cannot mint ERC721
-// Check que depuis le module 01 on peut mint de nouveaux ERC721, les burn, les transférer
