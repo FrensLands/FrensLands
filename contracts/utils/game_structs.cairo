@@ -80,12 +80,12 @@ namespace GabelousTypes:
 end
 
 struct Cost:
-    member resources_id : felt;
-    member resources_qty : felt;
-    member gold_qty : felt;
+    member resources_id : felt
+    member resources_qty : felt
+    member gold_qty : felt
 end
 
 struct Gabelous:
-    member gabelous_type : felt;
-    member daily_cost : Cost;
+    member gabelous_type : felt
+    member daily_cost : Cost
 end
