@@ -157,22 +157,32 @@ end
 func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256
 ) -> ():
-    let (caller) = get_caller_address()
-    let (controller) = Module.get_controller()
+    # Checks ?
+    _pause_game(tokenId)
+    return ()
+end
 
-    let (s_maps_erc721_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.S_Maps
-    )
-    # Check caller is owner of tokenId
-    let (owner : felt) = IERC721S_Maps.ownerOf(s_maps_erc721_addr, tokenId)
-    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
-        assert owner = caller
-    end
+@external
+func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    # Checks ?
+    # Needs to setApproval before saving_map
+    _pause_game(tokenId)
+    # Fetch data needed for MapsERC721 new mint
+    # Burn Maps
+    # Mint Map with new updated_data
+    # Burn S_map
+    return ()
+end
 
-    let (block_number) = get_block_number()
-    last_block.write(tokenId, block_number)
-    game_state.write(tokenId, 0)
-
+@external
+func reinitialize_world{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    # Regen maps resources by blocks
+    # Burn resources, and tokens left and restart from scratch
+    # Need setApprovalForAll before
     return ()
 end
 
@@ -199,3 +209,25 @@ end
 ######################
 # INTERNAL FUNCTIONS #
 ######################
+
+func _pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    let (caller) = get_caller_address()
+    let (controller) = Module.get_controller()
+
+    let (s_maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.S_Maps
+    )
+    # Check caller is owner of tokenId
+    let (owner : felt) = IERC721S_Maps.ownerOf(s_maps_erc721_addr, tokenId)
+    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
+        assert owner = caller
+    end
+
+    let (block_number) = get_block_number()
+    last_block.write(tokenId, block_number)
+    game_state.write(tokenId, 0)
+
+    return ()
+end

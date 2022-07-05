@@ -3,6 +3,7 @@
 struct MapData:
     member blocks_x : felt
     member blocks_y : felt
+    member time_start : felt  # à voir car déjà storage_var
 end
 
 namespace ModuleIds:
@@ -56,7 +57,7 @@ namespace BuildingIds:
     const CowFarm = 8
     const TreeFarm = 9
     const Mine = 10
-    const Markent = 11
+    const Market = 11
     const CoalPlant = 12
     const Cinema = 13
     const Bar = 14
@@ -64,27 +65,65 @@ namespace BuildingIds:
     const SwimmingPool = 16
     const PoliceStation = 17
     const House = 18
-    const Appartments = 19
+    const Appartment = 19
     const Hotel = 20
     const Lab = 21
     const Hospital = 22
+end
+
+# Fixed data for each building by type
+struct BuildingFixedData:
+    # member type_id : felt pas besoin car utilisé dans storage_var
+    member upgrade_cost : Cost
+    member daily_cost : Cost
+    member daily_harvest : Cost
+    member pop_max : felt
+    member pop_min : felt
+end
+
+struct BuildingData:
+    # member id : felt -> idem dans storage_var
+    member type_id : felt
+    member level : felt
+    member pop : felt
+    member time_created : felt
+    member last_repair : felt
 end
 
 struct Cost:
     member resources_id : felt
     member resources_qty : felt
     member gold_qty : felt
+    member energy_qty : felt
 end
 
-struct Gabelous:
-    member gabelous_type : felt
-    member daily_cost : Cost
+struct HarvestResourceBuilding:
+    member resource_id : felt
+    member resource_qty : felt
 end
 
-namespace GabelousTypes:
-    const Owner = 1
-    const Mayor = 2
-end
+# struct ResourcesData:
+#     member gold : felt
+#     member wood : felt
+#     member rock : felt
+#     member meat : felt
+#     member vegetables : felt
+#     member cereal : felt
+#     member metal : felt
+#     member copper : felt
+#     member coal : felt
+#     member phosphore : felt
+# end
+
+# struct Gabelous:
+#     member gabelous_type : felt
+#     member daily_cost : Cost
+# end
+
+# namespace GabelousTypes:
+#     const Owner = 1
+#     const Mayor = 2
+# end
 
 namespace EventsIds:
     const Event1 = 1
