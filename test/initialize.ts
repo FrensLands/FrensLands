@@ -13,12 +13,14 @@ describe("Starknet", function () {
   let ArbitrerContractFactory: StarknetContractFactory,
     MCContractFactory: StarknetContractFactory,
     MapsER721ContractFactory: StarknetContractFactory,
+    S_MapsER721ContractFactory: StarknetContractFactory,
     MinterMapsER721ContractFactory: StarknetContractFactory,
     M01ContractFactory: StarknetContractFactory,
     GoldContractFactory: StarknetContractFactory;
   let ArbitrerContract: StarknetContract,
     MCContract: StarknetContract,
     MapsERC721Contract: StarknetContract,
+    S_MapsERC721Contract: StarknetContract,
     MinterMapsER721Contract: StarknetContract,
     M01Contract: StarknetContract,
     GoldContract: StarknetContract;
@@ -58,8 +60,8 @@ describe("Starknet", function () {
       "tokens/Maps_ERC721_enumerable_mintable_burnable"
     );
     MapsERC721Contract = await MapsER721ContractFactory.deploy({
-      name: starknet.shortStringToBigInt("test_name"),
-      symbol: starknet.shortStringToBigInt("TT"),
+      name: starknet.shortStringToBigInt("Maps"),
+      symbol: starknet.shortStringToBigInt("MAPS"),
       owner: MinterMapsER721Contract.address,
       tokenURI: [
         starknet.shortStringToBigInt("ipfs://faeljfalifhail"),
@@ -72,6 +74,20 @@ describe("Starknet", function () {
     M01ContractFactory = await starknet.getContractFactory("M01_Worlds");
     M01Contract = await M01ContractFactory.deploy();
     console.log("M01 contract deployed at", M01Contract.address);
+
+    // Deploy S_Maps_ERC721 Contract
+    S_MapsER721ContractFactory = await starknet.getContractFactory(
+      "tokens/S_Maps_ERC721_mintable_burnable"
+    );
+    S_MapsERC721Contract = await S_MapsER721ContractFactory.deploy({
+      name: starknet.shortStringToBigInt("S_Maps"),
+      symbol: starknet.shortStringToBigInt("SMAPS"),
+      owner: M01Contract.address,
+    });
+    console.log(
+      "S_Maps ERC721 contract deployed at",
+      S_MapsERC721Contract.address
+    );
 
     // Deploy Gold ERC20 contract
     GoldContractFactory = await starknet.getContractFactory(
@@ -103,6 +119,7 @@ describe("Starknet", function () {
       arbitrer_address: ArbitrerContract.address,
       _maps_address: MapsERC721Contract.address,
       _minter_maps_address: MinterMapsER721Contract.address,
+      _s_maps_address: S_MapsERC721Contract.address,
       _gold_address: GoldContract.address,
     });
     console.log("ModuleController contract deployed at", MCContract.address);
@@ -220,15 +237,40 @@ describe("Starknet", function () {
     await account1.invoke(M01Contract, "start_game", {
       tokenId: { low: 1, high: 0 },
     });
-    const { owner } = await accountArbitrer.call(
+    const { owner: ownerMaps } = await account1.call(
       MapsERC721Contract,
       "ownerOf",
-      { tokenId: { low: 1, high: 0 } }
+      {
+        tokenId: { low: 1, high: 0 },
+      }
+    );
+    console.log(
+      "owner of NFT is now ",
+      BigInt("0x" + BigInt(ownerMaps).toString(16))
     );
     // expect("0x" + BigInt(owner).toString(16)).to.deep.equal(
     //   M01Contract.address
     // );
+    const { owner: ownerS_Maps } = await account1.call(
+      S_MapsERC721Contract,
+      "ownerOf",
+      {
+        tokenId: { low: 1, high: 0 },
+      }
+    );
+    console.log(
+      "owner of NFT is now ",
+      "0x" + BigInt(ownerS_Maps).toString(16)
+    );
+
+    const { balance: goldBalance } = await account1.call(
+      GoldContract,
+      "balanceOf",
+      { account: account1.address }
+    );
+    console.log("goldBalance", goldBalance);
+    // expect(goldBalance).to.deep.equal(900n);
   });
 
-  it("Fills the table", async function () {});
+  // it("Fills the table", async function () {});
 });

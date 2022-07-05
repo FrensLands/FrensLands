@@ -70,15 +70,6 @@ namespace BuildingIds:
     const Hospital = 22
 end
 
-namespace EventsIds:
-    const Event1 = 1
-end
-
-namespace GabelousTypes:
-    const Owner = 1
-    const Mayor = 2
-end
-
 struct Cost:
     member resources_id : felt
     member resources_qty : felt
@@ -88,4 +79,13 @@ end
 struct Gabelous:
     member gabelous_type : felt
     member daily_cost : Cost
+end
+
+namespace GabelousTypes:
+    const Owner = 1
+    const Mayor = 2
+end
+
+namespace EventsIds:
+    const Event1 = 1
 end
