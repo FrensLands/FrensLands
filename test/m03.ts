@@ -117,18 +117,18 @@ describe("Starknet", function () {
   //     );
   //     console.log("count", before);
 
-  //     // const estimatedFee = await accountArbitrer.estimateFee(
-  //     //   M03_Contract,
-  //     //   "upgrade",
-  //     //   {
-  //     //     token_id: { low: 1, high: 0 },
-  //     //     building_id: 2,
-  //     //     level: 1,
-  //     //     position: 1,
-  //     //     allocated_population: 2,
-  //     //   }
-  //     // );
-  //     // expectFeeEstimationStructure(estimatedFee);
+  const estimatedFee = await accountArbitrer.estimateFee(
+    M03_Contract,
+    "upgrade",
+    {
+      token_id: { low: 1, high: 0 },
+      building_id: 2,
+      level: 1,
+      position: 1,
+      allocated_population: 2,
+    }
+  );
+  expectFeeEstimationStructure(estimatedFee);
 
   //     const txHash = await accountArbitrer.invoke(
   //       M03_Contract,

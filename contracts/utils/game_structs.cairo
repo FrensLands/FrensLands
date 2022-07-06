@@ -3,7 +3,7 @@
 struct MapData:
     member blocks_x : felt
     member blocks_y : felt
-    member time_start : felt  # à voir car déjà storage_var
+    member type : felt
 end
 
 namespace ModuleIds:
@@ -78,14 +78,14 @@ namespace BuildingIds:
     const count = 24
 end
 
-struct DailyCost:
+struct SingleResource:
     member resources_id : felt
     member resources_qty : felt
     member gold_qty : felt
     member energy_qty : felt
 end
 
-struct UpgradeCost:
+struct MultipleResources:
     member nb_resources : felt
     member resources_qty : felt
     member gold_qty : felt
@@ -94,35 +94,20 @@ end
 
 # Fixed data for each building by type
 struct BuildingFixedData:
-    # member type_id : felt pas besoin car utilisé dans storage_var
-    member upgrade_cost : UpgradeCost
-    member daily_cost : DailyCost
-    member daily_harvest : DailyCost
+    member upgrade_cost : MultipleResources
+    member daily_cost : MultipleResources
+    member daily_harvest : MultipleResources
     member pop_max : felt
     member pop_min : felt
 end
 
 struct BuildingData:
-    # member id : felt -> idem dans storage_var
     member type_id : felt
     member level : felt
     member pop : felt
     member time_created : felt
     member last_repair : felt
 end
-
-# struct ResourcesData:
-#     member gold : felt
-#     member wood : felt
-#     member rock : felt
-#     member meat : felt
-#     member vegetables : felt
-#     member cereal : felt
-#     member metal : felt
-#     member copper : felt
-#     member coal : felt
-#     member phosphore : felt
-# end
 
 # struct Gabelous:
 #     member gabelous_type : felt

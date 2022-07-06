@@ -9,7 +9,7 @@ from starkware.starknet.common.syscalls import (
 )
 from starkware.cairo.common.uint256 import Uint256, uint256_sub
 from starkware.cairo.common.alloc import alloc
-from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le
+from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le, is_le
 from starkware.cairo.common.math import assert_le
 from starkware.cairo.common.bool import TRUE, FALSE
 
@@ -17,13 +17,13 @@ from contracts.utils.game_structs import (
     ModuleIds,
     ExternalContractsIds,
     BuildingFixedData,
-    UpgradeCost,
-    DailyCost,
+    SingleResource,
+    MultipleResources,
     BuildingData,
 )
 from contracts.utils.game_constants import GOLD_START
 
-from contracts.utils.tokens_interfaces import IERC721Maps, IERC20Gold
+from contracts.utils.tokens_interfaces import IERC721Maps, IERC20Gold, IERC1155
 from contracts.utils.interfaces import IModuleController
 from contracts.utils.bArray import bArray
 from contracts.library.library_module import Module
@@ -69,10 +69,7 @@ end
 # CONSTRUCTOR #
 ###############
 
-# TODO : Add initialize Controller Address
-
 # Initialize fixed data
-# TODO : can be done only once
 @constructor
 func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     type_len : felt,
@@ -96,6 +93,15 @@ func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_p
     return ()
 end
 
+# Initialize Controller Address
+@external
+func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    address_of_controller : felt
+):
+    Module.initialize_controller(address_of_controller)
+    return ()
+end
+
 func _initialize_global_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     type_len : felt,
     type : felt*,
@@ -111,19 +117,19 @@ func _initialize_global_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, r
         return ()
     end
 
-    let c_upgrade = UpgradeCost(
+    let c_upgrade = MultipleResources(
         nb_resources=building_cost[0],
         resources_qty=building_cost[1],
         gold_qty=building_cost[2],
         energy_qty=building_cost[3],
     )
-    let c_daily = DailyCost(
-        resources_id=daily_cost[0],
+    let c_daily = MultipleResources(
+        nb_resources=daily_cost[0],
         resources_qty=daily_cost[1],
         gold_qty=daily_cost[2],
         energy_qty=daily_cost[3],
     )
-    let h_daily = DailyCost(
+    let h_daily = SingleResource(
         resources_id=daily_harvest[0],
         resources_qty=daily_harvest[1],
         gold_qty=daily_harvest[2],
@@ -168,7 +174,7 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     let (costs_len : felt, costs : felt*) = _get_costs_from_chain(
         building_data.upgrade_cost.nb_resources, building_data.upgrade_cost.resources_qty
     )
-    # TODO : Check owner has enough resources to build
+    # TO FINISH : Check owner has enough resources to build
     let (has_resources) = _has_resources(costs_len, costs)
     with_attr error_message("M03_Buildings: caller has not enough resources."):
         assert has_resources = 1
@@ -180,18 +186,25 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     end
 
     # TODO : Check owner can build on this position on the map
-    # _can_build
-    # Call une view function dans map qui récupère les données et regarde si c'est dispo
+    #   _can_build
+    #   Call une view function dans map qui récupère les données et regarde si c'est dispo
+    # + check le mat type
 
     # Increment building ID
     let (last_index) = building_index.read(token_id)
     let (current_block) = get_block_number()
 
-    # TODO : In M02_Resources call :
-    #   - Decrement all resources : en passant (costs_len : felt, costs : felt*)
-    # == tableau de couts [ID, QTY1, ID2, QTY2]
-    # , gold, energy
-    #   - Decrement population
+    # TODO : Burn resources needed
+    #   costs_len : felt, costs : felt*
+
+    # TODO : Burn Gold
+    let (gold_cost) = building_data.upgrade_cost.gold_qty
+
+    # TODO : Decrement population
+    let (energy_cost) = building_data.upgrade_cost.energy_qty
+
+    # TODO: Decrement population from available pop
+    # value = allocated_population
 
     # Build data for building
     _building_data.write(token_id, last_index + 1, BuildingData.type_id, building_type_id)
@@ -202,13 +215,27 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
 
     building_index.write(token_id, last_index + 1)
 
-    # TODO : In M02_Resources
-    #   - Calculate resources and update la storage_var du M02_Resources
-    #     avec les daily costs et les daily recettes
-    #  @storage_var
-    # func daily_cost(index: felt, ressource_id : felt) -> (cost : Cost):
-    # end
-    # Idem pour daily_harvest : owner, index de la ressources -> qty
+    # TODO : Calculer coûts et harvest en fonction de la population
+
+    # Update Daily Costs
+    # Fetch a the costs of format [ID_RES1, QTY1, ID_RES2, QTY2, ...]
+    let (daily_costs_len : felt, daily_costs : felt*) = _get_costs_from_chain(
+        building_data.daily_cost.nb_resources, building_data.daily_cost.resources_qty
+    )
+    let (daily_cost_gold) = building_data.daily_cost.gold_qty
+    let (daily_cost_energy) = building_data.daily_cost.energy_qty
+
+    # TODO : Update daily_cost storage_var res + gold + energy
+
+    # Update Daily Harvest
+    # Fetch harvesting quantities [ID_RES1, QTY1, ID_RES2, QTY2, ...]
+    let (daily_harvests_len : felt, daily_harvests : felt*) = _get_costs_from_chain(
+        building_data.daily_harvest.nb_resources, building_data.daily_harvest.resources_qty
+    )
+    let (daily_harvest_gold) = building_data.daily_harvest.gold_qty
+    let (daily_harvest_energy) = building_data.daily_harvest.energy_qty
+
+    # TODO : Update daily_harvest storage_var res + gold + energy
 
     let (id) = building_count.read(token_id)
     building_count.write(token_id, id + 1)
@@ -350,16 +377,13 @@ end
 func _build_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     token_id : Uint256, counter : felt, data_size : felt, data : felt*, max_count : felt
 ):
-    # On return si le tab de result == nb de buildings construits
     if data_size == max_count:
         return ()
     end
 
-    # Pour chaque index entre 1 et last id of building on check type_id
     let (new_b) = _building_data.read(
         token_id=token_id, building_id=counter, storage_index=BuildingData.type_id
     )
-    # Si 0 alors vide, si 1 alors exists
     let (exists) = is_not_zero(new_b)
 
     %{ print ('max_count : ', ids.max_count) %}
@@ -371,10 +395,8 @@ func _build_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
         assert data[0] = counter
         assert data[1] = new_b
         _build_ids(token_id, counter + 1, data_size + 2, data + 2, max_count)
-        # tempvar range_check_ptr = range_check_ptr
     else:
         _build_ids(token_id, counter + 1, data_size, data, max_count)
-        # tempvar range_check_ptr = range_check_ptr
     end
 
     return ()
@@ -389,16 +411,30 @@ end
 # @param resources_qty : the chain of numbers
 # @param nb_resources : nb of resources
 func _has_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    costs_len : felt, costs : felt
+    costs_len : felt, costs : felt*
 ) -> (bool : felt):
+    alloc_locals
     if costs_len == 0:
         return (TRUE)
     end
 
-    # GET ERC1155
-    # Check
+    let (caller) = get_caller_address()
+    let (controller) = Module.get_controller()
+    let (erc1155_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Resources
+    )
 
-    return _can_build(costs_len - 2, costs + 2)
+    # TODO : Call balance of owner et token_id = costs[0]
+
+    # let (balance : Uint256) = IERC1155.balanceOf(caller, costs[0])
+    # let (local check) = is_le(costs[1], balance.low)
+    # if check == 1:
+    #     return _has_resources(costs_len - 2, costs + 2)
+    # else:
+    #     return (FALSE)
+    # end
+
+    return (TRUE)
 end
 
 # @notice decompose the costs of building to build
@@ -424,7 +460,13 @@ func _get_costs_from_chain{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
     return (nb_resources * 2, costs)
 end
 
-# _can_build()
-#   _has_enough_resources()
-#   _
+# TODO :
+# @notice check player can build on a given position
+@view
+func _can_build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    nb_resources : felt, resources_qty : felt
+) -> (ret_array_len : felt, ret_array : felt*):
+    return ()
+end
+
 # _fetch_costs

@@ -182,8 +182,11 @@ describe("Starknet", function () {
       }
     );
 
-    // Initialize M01 module with controller address
+    // Initialize Modules with controller address
     await accountArbitrer.invoke(M01Contract, "initializer", {
+      address_of_controller: MCContract.address,
+    });
+    await accountArbitrer.invoke(M03Contract, "initializer", {
       address_of_controller: MCContract.address,
     });
   });
