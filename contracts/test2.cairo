@@ -13,20 +13,44 @@ from starkware.cairo.common.math import assert_lt
 from starkware.cairo.common.math_cmp import is_le, is_le_felt, is_nn_le
 
 # [pos:x][pos:x][pos:y][pos:y][mat type][ress or bat type]
-# [ress or bat type][health][health][quantity ress or pop]
+# [ress or bat type][UNIQUE ID][UNIQUE ID]
+# [UNIQUE ID][health][health][quantity ress or pop]
 # [quantity ress or pop][current level][activity index or number of days active]
 
-const A1 = 5
-const A2 = 4
-const A3 = 3
-const A4 = 2
-const A5 = 1
 
-const B1 = 100000
-const B2 = 10000
-const B3 = 1000
-const B4 = 100
-const B5 = 10
+#1.[pos:x]
+#2.[pos:x]
+#3.[pos:y]
+#4.[pos:y]
+#5.[mat type]
+#6.[ress or bat type]
+#7.[ress or bat type]
+#8.[UNIQUE ID]
+#9.[UNIQUE ID]
+#10.[UNIQUE ID]
+#11.[health]
+#12.[health]
+#13.[quantity ress or pop]
+#14.[quantity ress or pop]
+#15.[current level]
+#16.[activity index or number of days active]
+
+# Nb of resources
+# [RES ID RX0][RES Qty QX0][RES Qty QX0][RES ID RX1][RES Qty QX1][RES Qty QX1][RES ID RX2][RES Qty QX2][RES Qty QX2]
+
+
+
+# namespace ResourcesType:
+#     const Wood = 1
+#     const Rock = 2
+#     const Meat = 3
+#     const Vegetables = 4
+#     const Cereal = 5
+#     const Metal = 6
+#     const Copper = 7
+#     const Coal = 8
+#     const Phosphore = 9
+# end
 
 ###########
 # STORAGE #
@@ -42,7 +66,13 @@ end
 
 @external
 func decompose{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    multArr_len : felt, multArr : felt*, bArr_len : felt, bArr : felt*, numChar : felt
+    # multArr_len : felt,
+    # multArr : felt*,
+    bArr_len : felt,
+    bArr : felt*,
+    # cArr_len : felt,
+    # cArr : felt*,
+    numChar : felt,
 ):
     alloc_locals
     let (local arr : felt*) = alloc()
@@ -50,6 +80,7 @@ func decompose{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr
     let (comp) = composition.read()
 
     _decompose(bArr_len, bArr, numChar, arr, comp, 0, 0, 0)
+    # _decompose(bArr_len, bArr, cArr_len, cArr, numChar, arr, comp, 0, 0, 0)
 
     return ()
 end
@@ -57,6 +88,8 @@ end
 func _decompose{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     bArr_len : felt,
     bArr : felt*,
+    # cArr_len : felt,
+    # cArr : felt*,
     numChar : felt,
     arr : felt*,
     comp : felt,
@@ -73,21 +106,50 @@ func _decompose{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     %{ print ('tempRes : ', ids.tempRes) %}
 
     let (check) = is_nn_le(res, bArr[0])
-
+    # let (check) = is_le(res, cArr[0])
     %{ print ('check : ', ids.check) %}
 
-    if i == 5:
+    if i == 15:
         # arr[0] = res
         decomp.write(i, res)
         return ()
+    end
+
+    if (bArr[0] - res) == 0:
+      assert arr[0] = 1
+      local new_temp = tempRes + (arr[0] * bArr[0])
+      decomp.write(i, 1)
+      _decompose(
+          bArr_len - 1,
+          bArr + 1,
+          #cArr_len - 1,
+          #cArr + 1,
+          numChar,
+          arr + 1,
+          comp,
+          0,
+          i + 1,
+          new_temp,
+      )
+      return ()
     end
 
     if check == 1:
         arr[0] = index
         local new_temp = tempRes + (arr[0] * bArr[0])
         decomp.write(i, index)
-        _decompose(bArr_len - 1, bArr + 1, numChar, arr + 1, comp, 0, i + 1, new_temp)
-
+        _decompose(
+            bArr_len - 1,
+            bArr + 1,
+            #cArr_len - 1,
+            #cArr + 1,
+            numChar,
+            arr + 1,
+            comp,
+            0,
+            i + 1,
+            new_temp,
+        )
         tempvar pedersen_ptr = pedersen_ptr
         tempvar syscall_ptr = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
@@ -113,7 +175,7 @@ end
 func compose{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     bArr_len : felt, bArr : felt*, values_len : felt, values : felt*
 ):
-    let comp = (bArr[0] * values[0]) + (bArr[1] * values[1]) + (bArr[2] * values[2]) + (bArr[3] * values[3]) + (bArr[4] * values[4]) + values[5]
+    let comp = (bArr[0] * values[0]) + (bArr[1] * values[1]) + (bArr[2] * values[2]) + (bArr[3] * values[3]) + (bArr[4] * values[4]) + (bArr[5] * values[5]) + (bArr[6] * values[6]) + (bArr[7] * values[7]) + (bArr[8] * values[8]) + (bArr[9] * values[9]) + (bArr[10] * values[10]) + (bArr[11] * values[11]) + (bArr[12] * values[12]) + (bArr[13] * values[13]) + (bArr[14] * values[14]) + values[15]
 
     composition.write(comp)
 
