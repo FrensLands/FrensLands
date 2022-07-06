@@ -17,6 +17,9 @@ describe("Starknet", function () {
   const M03_CONTRACT =
     "0x01c025dba9b67047f5b84b09255517e878e9a21d45334638c867f150ce02ab51";
 
+  const M03_CONTRACT_DEV =
+    "0x003fdf42da5cf22eeeb9d50d0659f003f111087692095d46f8eaff028c09720d";
+
   const buildingTypes = [
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
     22,
@@ -75,8 +78,8 @@ describe("Starknet", function () {
       daily_harvest: dailyHarvest,
       pop: buildingPops,
     });
-    0x039277456b3eaa163fdc90935ca0489c4a03388d86f390e4f66e1db391e4a5b9;
-    // M03_Contract = M03CF.getContractAt(M03_CONTRACT);
+    // 0x039277456b3eaa163fdc90935ca0489c4a03388d86f390e4f66e1db391e4a5b9;
+    // M03_Contract = M03CF.getContractAt(M03_CONTRACT_DEV);
     console.log("M03 contract", M03_Contract.address);
   });
 
@@ -92,57 +95,99 @@ describe("Starknet", function () {
     console.log("Data", data1);
   });
 
-  it("Build building", async function () {
-    const { count: before } = await accountArbitrer.call(
+  it("Test unpack costs", async function () {
+    const { ret_array } = await accountArbitrer.call(
       M03_Contract,
-      "get_building_count",
+      "_get_costs_from_chain",
       {
-        token_id: { low: 1, high: 0 },
+        nb_resources: 2,
+        resources_qty: "110205",
       }
     );
-    console.log("count", before);
-
-    // const estimatedFee = await accountArbitrer.estimateFee(
-    //   M03_Contract,
-    //   "upgrade",
-    //   {
-    //     token_id: { low: 1, high: 0 },
-    //     building_id: 2,
-    //     level: 1,
-    //     position: 1,
-    //     allocated_population: 2,
-    //   }
-    // );
-    // expectFeeEstimationStructure(estimatedFee);
-
-    const txHash = await accountArbitrer.invoke(
-      M03_Contract,
-      "upgrade",
-      {
-        token_id: { low: 1, high: 0 },
-        building_id: 2,
-        level: 1,
-        position: 1,
-        allocated_population: 2,
-      }
-      //   { maxFee: estimatedFee.amount }
-    );
-
-    const { data: data1 } = await accountArbitrer.call(
-      M03_Contract,
-      "get_all_building_ids",
-      {
-        token_id: { low: 1, high: 0 },
-      }
-    );
-    console.log("All building dat", data1);
-    // const { data } = await accountArbitrer.call(
-    //   M03_Contract,
-    //   "get_building_count",
-    //   {
-    //     token_id: { low: 1, high: 0 },
-    //   }
-    // );
-    // console.log("All building data", data);
+    console.log("Data", ret_array);
   });
+
+  //   it("Build building & destroy building", async function () {
+  //     const { count: before } = await accountArbitrer.call(
+  //       M03_Contract,
+  //       "get_building_count",
+  //       {
+  //         token_id: { low: 1, high: 0 },
+  //       }
+  //     );
+  //     console.log("count", before);
+
+  //     // const estimatedFee = await accountArbitrer.estimateFee(
+  //     //   M03_Contract,
+  //     //   "upgrade",
+  //     //   {
+  //     //     token_id: { low: 1, high: 0 },
+  //     //     building_id: 2,
+  //     //     level: 1,
+  //     //     position: 1,
+  //     //     allocated_population: 2,
+  //     //   }
+  //     // );
+  //     // expectFeeEstimationStructure(estimatedFee);
+
+  //     const txHash = await accountArbitrer.invoke(
+  //       M03_Contract,
+  //       "upgrade",
+  //       {
+  //         token_id: { low: 1, high: 0 },
+  //         building_type_id: 2,
+  //         level: 1,
+  //         position: 1,
+  //         allocated_population: 2,
+  //       }
+  //       //   { maxFee: estimatedFee.amount }
+  //     );
+  //     const { count: after } = await accountArbitrer.call(
+  //       M03_Contract,
+  //       "get_building_count",
+  //       {
+  //         token_id: { low: 1, high: 0 },
+  //       }
+  //     );
+  //     console.log("after count", after);
+
+  //     const { data: data1 } = await accountArbitrer.call(
+  //       M03_Contract,
+  //       "get_all_building_ids",
+  //       {
+  //         token_id: { low: 1, high: 0 },
+  //       }
+  //     );
+  //     console.log("All building dat", data1);
+
+  //     await accountArbitrer.invoke(M03_Contract, "upgrade", {
+  //       token_id: { low: 1, high: 0 },
+  //       building_type_id: 3,
+  //       level: 1,
+  //       position: 1,
+  //       allocated_population: 2,
+  //     });
+
+  //     const { data: data2 } = await accountArbitrer.call(
+  //       M03_Contract,
+  //       "get_all_building_ids",
+  //       {
+  //         token_id: { low: 1, high: 0 },
+  //       }
+  //     );
+  //     console.log("All building dat 2", data2);
+
+  //     await accountArbitrer.invoke(M03_Contract, "destroy", {
+  //       token_id: { low: 1, high: 0 },
+  //       building_unique_id: 1,
+  //     });
+  //     const { data } = await accountArbitrer.call(
+  //       M03_Contract,
+  //       "get_all_building_ids",
+  //       {
+  //         token_id: { low: 1, high: 0 },
+  //       }
+  //     );
+  //     console.log("All building data after destroy", data);
+  //   });
 });

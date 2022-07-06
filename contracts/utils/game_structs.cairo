@@ -36,6 +36,8 @@ namespace ResourcesType:
     const Copper = 7
     const Coal = 8
     const Phosphore = 9
+
+    const count = 9
 end
 
 namespace MapsPrice:
@@ -44,10 +46,11 @@ namespace MapsPrice:
     const Map_3 = 200
     const Map_4 = 300
     const Map_5 = 500
+    const count = 5
 end
 
 namespace BuildingIds:
-    const Cabine = 1
+    const Cabin = 1
     const Boulangerie = 2
     const Mall = 3
     const GroceryShop = 4
@@ -69,14 +72,31 @@ namespace BuildingIds:
     const Hotel = 20
     const Lab = 21
     const Hospital = 22
+    const Rock = 23
+    const Tree = 24
+    const count = 24
+end
+
+struct DailyCost:
+    member resources_id : felt
+    member resources_qty : felt
+    member gold_qty : felt
+    member energy_qty : felt
+end
+
+struct UpgradeCost:
+    member nb_resources : felt
+    member resources_qty : felt
+    member gold_qty : felt
+    member energy_qty : felt
 end
 
 # Fixed data for each building by type
 struct BuildingFixedData:
     # member type_id : felt pas besoin car utilisé dans storage_var
-    member upgrade_cost : Cost
-    member daily_cost : Cost
-    member daily_harvest : Cost
+    member upgrade_cost : UpgradeCost
+    member daily_cost : DailyCost
+    member daily_harvest : DailyCost
     member pop_max : felt
     member pop_min : felt
 end
@@ -88,18 +108,6 @@ struct BuildingData:
     member pop : felt
     member time_created : felt
     member last_repair : felt
-end
-
-struct Cost:
-    member resources_id : felt
-    member resources_qty : felt
-    member gold_qty : felt
-    member energy_qty : felt
-end
-
-struct HarvestResourceBuilding:
-    member resource_id : felt
-    member resource_qty : felt
 end
 
 # struct ResourcesData:
