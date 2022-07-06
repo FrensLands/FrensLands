@@ -49,7 +49,9 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 ):
     arbitrer.write(arbitrer_address)
 
-    # add logic of writing between contracts
+    # Writings logics between contracts
+    # M03_Buildings can write to M02_Resources
+    can_write_to.(doing_writing=ModuleIds.M03_Buildings, being_written_to=ModuleIds.M02_Resources, 1)
 
     external_contracts.write(ExternalContractsIds.Maps, _maps_address)
     external_contracts.write(ExternalContractsIds.MinterMaps, _minter_maps_address)
@@ -90,12 +92,18 @@ end
 @external
 func set_initial_module_addresses{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(m01_addr : felt):
+}(m01_addr : felt, m02_addr : felt, m03_addr : felt):
     only_arbitrer()
 
     # for each module update the storage_vars module_id_of_address & address_of_module_id
     module_id_of_address.write(address=m01_addr, value=ModuleIds.M01_Worlds)
     address_of_module_id.write(module_id=ModuleIds.M01_Worlds, value=m01_addr)
+
+    module_id_of_address.write(address=m02_addr, value=ModuleIds.M02_Resources)
+    address_of_module_id.write(module_id=ModuleIds.M02_Resources, value=m02_addr)
+
+    module_id_of_address.write(address=m03_addr, value=ModuleIds.M03_Buildings)
+    address_of_module_id.write(module_id=ModuleIds.M03_Buildings, value=m03_addr)
 
     return ()
 end

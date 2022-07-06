@@ -16,6 +16,8 @@ describe("Starknet", function () {
     S_MapsER721ContractFactory: StarknetContractFactory,
     MinterMapsER721ContractFactory: StarknetContractFactory,
     M01ContractFactory: StarknetContractFactory,
+    M02ContractFactory: StarknetContractFactory,
+    M03ContractFactory: StarknetContractFactory,
     GoldContractFactory: StarknetContractFactory;
   let ArbitrerContract: StarknetContract,
     MCContract: StarknetContract,
@@ -23,6 +25,8 @@ describe("Starknet", function () {
     S_MapsERC721Contract: StarknetContract,
     MinterMapsER721Contract: StarknetContract,
     M01Contract: StarknetContract,
+    M02Contract: StarknetContract,
+    M03Contract: StarknetContract,
     GoldContract: StarknetContract;
   let accountArbitrer: Account, account1: Account;
 
@@ -74,6 +78,21 @@ describe("Starknet", function () {
     M01ContractFactory = await starknet.getContractFactory("M01_Worlds");
     M01Contract = await M01ContractFactory.deploy();
     console.log("M01 contract deployed at", M01Contract.address);
+    // Deploy M01 module contract
+    M02ContractFactory = await starknet.getContractFactory("M02_Resources");
+    M02Contract = await M02ContractFactory.deploy();
+    console.log("M02 contract deployed at", M02Contract.address);
+    // Deploy M01 module contract
+    M03ContractFactory = await starknet.getContractFactory("M03_Buildings");
+    M03Contract = await M03ContractFactory.deploy({
+      // type: buildingTypes,
+      // level: 1,
+      // building_cost: buildingCosts,
+      // daily_cost: dailyCosts,
+      // daily_harvest: dailyHarvest,
+      // pop: buildingPops,
+    });
+    console.log("M03 contract deployed at", M03Contract.address);
 
     // Deploy S_Maps_ERC721 Contract
     S_MapsER721ContractFactory = await starknet.getContractFactory(
@@ -145,6 +164,8 @@ describe("Starknet", function () {
       "batch_set_controller_addresses",
       {
         m01_addr: M01Contract.address,
+        m02_addr: M02Contract.address,
+        m03_addr: M03Contract.address,
       }
     );
 

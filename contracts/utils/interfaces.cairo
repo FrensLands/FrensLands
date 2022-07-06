@@ -21,7 +21,7 @@ namespace IModuleController:
     func set_address_for_module_id(module_id : felt, module_address : felt):
     end
 
-    func set_initial_module_addresses(m01_addr : felt):
+    func set_initial_module_addresses(m01_addr : felt, m02_addr : felt, m03_addr : felt):
     end
 
     func set_write_access(module_id_doing_writing : felt, module_id_being_written_to : felt):
