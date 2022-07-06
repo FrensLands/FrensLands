@@ -18,6 +18,7 @@ namespace ExternalContractsIds:
     const MinterMaps = 2
     const S_Maps = 3
     const Gold = 4
+    const Resources = 5
 end
 
 namespace MapGroundType:

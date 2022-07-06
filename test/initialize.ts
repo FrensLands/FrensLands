@@ -14,6 +14,7 @@ describe("Starknet", function () {
     MCContractFactory: StarknetContractFactory,
     MapsER721ContractFactory: StarknetContractFactory,
     S_MapsER721ContractFactory: StarknetContractFactory,
+    ERC1155ContractFactory: StarknetContractFactory,
     MinterMapsER721ContractFactory: StarknetContractFactory,
     M01ContractFactory: StarknetContractFactory,
     M02ContractFactory: StarknetContractFactory,
@@ -24,6 +25,7 @@ describe("Starknet", function () {
     MapsERC721Contract: StarknetContract,
     S_MapsERC721Contract: StarknetContract,
     MinterMapsER721Contract: StarknetContract,
+    ERC1155Contract: StarknetContract,
     M01Contract: StarknetContract,
     M02Contract: StarknetContract,
     M03Contract: StarknetContract,
@@ -108,6 +110,16 @@ describe("Starknet", function () {
       S_MapsERC721Contract.address
     );
 
+    // Deploy ERC1155 Contract
+    ERC1155ContractFactory = await starknet.getContractFactory(
+      "tokens/ERC1155_Mintable_Burnable"
+    );
+    ERC1155Contract = await ERC1155ContractFactory.deploy({
+      uri: starknet.shortStringToBigInt("resources_uri"),
+      owner: M01Contract.address,
+    });
+    console.log("ERC1155 address: ", ERC1155Contract.address);
+
     // Deploy Gold ERC20 contract
     GoldContractFactory = await starknet.getContractFactory(
       "tokens/Gold_ERC20_Mintable_Burnable"
@@ -140,6 +152,7 @@ describe("Starknet", function () {
       _minter_maps_address: MinterMapsER721Contract.address,
       _s_maps_address: S_MapsERC721Contract.address,
       _gold_address: GoldContract.address,
+      _resources_address: ERC1155Contract.address,
     });
     console.log("ModuleController contract deployed at", MCContract.address);
 

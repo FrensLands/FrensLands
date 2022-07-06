@@ -46,6 +46,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     _minter_maps_address : felt,
     _s_maps_address : felt,
     _gold_address : felt,
+    _resources_address : felt
 ):
     arbitrer.write(arbitrer_address)
 
@@ -57,6 +58,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     external_contracts.write(ExternalContractsIds.MinterMaps, _minter_maps_address)
     external_contracts.write(ExternalContractsIds.S_Maps, _s_maps_address)
     external_contracts.write(ExternalContractsIds.Gold, _gold_address)
+    external_contracts.write(ExternalContractsIds.Resources, _resources_address)
 
     return ()
 end
