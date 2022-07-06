@@ -71,6 +71,14 @@ namespace BuildingIds:
     const Hospital = 22
 end
 
+struct Cost:
+    member resources_id : felt
+    member resources_qty : felt
+    member gold_qty : felt
+    member energy_qty : felt
+end
+
+
 # Fixed data for each building by type
 struct BuildingFixedData:
     # member type_id : felt pas besoin car utilisé dans storage_var
@@ -88,13 +96,6 @@ struct BuildingData:
     member pop : felt
     member time_created : felt
     member last_repair : felt
-end
-
-struct Cost:
-    member resources_id : felt
-    member resources_qty : felt
-    member gold_qty : felt
-    member energy_qty : felt
 end
 
 struct HarvestResourceBuilding:
