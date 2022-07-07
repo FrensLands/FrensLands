@@ -119,7 +119,9 @@ func batch_set_controller_addresses{
     Ownable.assert_only_owner()
     let (controller) = controller_address.read()
 
-    IModuleController.set_initial_module_addresses(contract_address=controller, m01_addr=m01_addr)
+    IModuleController.set_initial_module_addresses(
+        contract_address=controller, m01_addr=m01_addr, m02_addr=m02_addr, m03_addr=m03_addr
+    )
 
     return ()
 end

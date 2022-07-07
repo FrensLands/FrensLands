@@ -14,15 +14,21 @@ describe("Starknet", function () {
     MCContractFactory: StarknetContractFactory,
     MapsER721ContractFactory: StarknetContractFactory,
     S_MapsER721ContractFactory: StarknetContractFactory,
+    ERC1155ContractFactory: StarknetContractFactory,
     MinterMapsER721ContractFactory: StarknetContractFactory,
     M01ContractFactory: StarknetContractFactory,
+    M02ContractFactory: StarknetContractFactory,
+    M03ContractFactory: StarknetContractFactory,
     GoldContractFactory: StarknetContractFactory;
   let ArbitrerContract: StarknetContract,
     MCContract: StarknetContract,
     MapsERC721Contract: StarknetContract,
     S_MapsERC721Contract: StarknetContract,
     MinterMapsER721Contract: StarknetContract,
+    ERC1155Contract: StarknetContract,
     M01Contract: StarknetContract,
+    M02Contract: StarknetContract,
+    M03Contract: StarknetContract,
     GoldContract: StarknetContract;
   let accountArbitrer: Account, account1: Account;
 
@@ -74,6 +80,21 @@ describe("Starknet", function () {
     M01ContractFactory = await starknet.getContractFactory("M01_Worlds");
     M01Contract = await M01ContractFactory.deploy();
     console.log("M01 contract deployed at", M01Contract.address);
+    // Deploy M01 module contract
+    M02ContractFactory = await starknet.getContractFactory("M02_Resources");
+    M02Contract = await M02ContractFactory.deploy();
+    console.log("M02 contract deployed at", M02Contract.address);
+    // Deploy M01 module contract
+    M03ContractFactory = await starknet.getContractFactory("M03_Buildings");
+    M03Contract = await M03ContractFactory.deploy({
+      // type: buildingTypes,
+      // level: 1,
+      // building_cost: buildingCosts,
+      // daily_cost: dailyCosts,
+      // daily_harvest: dailyHarvest,
+      // pop: buildingPops,
+    });
+    console.log("M03 contract deployed at", M03Contract.address);
 
     // Deploy S_Maps_ERC721 Contract
     S_MapsER721ContractFactory = await starknet.getContractFactory(
@@ -88,6 +109,16 @@ describe("Starknet", function () {
       "S_Maps ERC721 contract deployed at",
       S_MapsERC721Contract.address
     );
+
+    // Deploy ERC1155 Contract
+    ERC1155ContractFactory = await starknet.getContractFactory(
+      "tokens/ERC1155_Mintable_Burnable"
+    );
+    ERC1155Contract = await ERC1155ContractFactory.deploy({
+      uri: starknet.shortStringToBigInt("resources_uri"),
+      owner: M01Contract.address,
+    });
+    console.log("ERC1155 address: ", ERC1155Contract.address);
 
     // Deploy Gold ERC20 contract
     GoldContractFactory = await starknet.getContractFactory(
@@ -121,6 +152,7 @@ describe("Starknet", function () {
       _minter_maps_address: MinterMapsER721Contract.address,
       _s_maps_address: S_MapsERC721Contract.address,
       _gold_address: GoldContract.address,
+      _resources_address: ERC1155Contract.address,
     });
     console.log("ModuleController contract deployed at", MCContract.address);
 
@@ -145,11 +177,16 @@ describe("Starknet", function () {
       "batch_set_controller_addresses",
       {
         m01_addr: M01Contract.address,
+        m02_addr: M02Contract.address,
+        m03_addr: M03Contract.address,
       }
     );
 
-    // Initialize M01 module with controller address
+    // Initialize Modules with controller address
     await accountArbitrer.invoke(M01Contract, "initializer", {
+      address_of_controller: MCContract.address,
+    });
+    await accountArbitrer.invoke(M03Contract, "initializer", {
       address_of_controller: MCContract.address,
     });
   });

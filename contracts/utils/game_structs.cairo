@@ -3,7 +3,7 @@
 struct MapData:
     member blocks_x : felt
     member blocks_y : felt
-    member time_start : felt  # à voir car déjà storage_var
+    member type : felt
 end
 
 namespace ModuleIds:
@@ -18,6 +18,7 @@ namespace ExternalContractsIds:
     const MinterMaps = 2
     const S_Maps = 3
     const Gold = 4
+    const Resources = 5
 end
 
 namespace MapGroundType:
@@ -36,6 +37,8 @@ namespace ResourcesType:
     const Copper = 7
     const Coal = 8
     const Phosphore = 9
+
+    const count = 9
 end
 
 namespace MapsPrice:
@@ -44,10 +47,11 @@ namespace MapsPrice:
     const Map_3 = 200
     const Map_4 = 300
     const Map_5 = 500
+    const count = 5
 end
 
 namespace BuildingIds:
-    const Cabine = 1
+    const Cabin = 1
     const Boulangerie = 2
     const Mall = 3
     const GroceryShop = 4
@@ -69,6 +73,23 @@ namespace BuildingIds:
     const Hotel = 20
     const Lab = 21
     const Hospital = 22
+    const Rock = 23
+    const Tree = 24
+    const count = 24
+end
+
+struct SingleResource:
+    member resources_id : felt
+    member resources_qty : felt
+    member gold_qty : felt
+    member energy_qty : felt
+end
+
+struct MultipleResources:
+    member nb_resources : felt
+    member resources_qty : felt
+    member gold_qty : felt
+    member energy_qty : felt
 end
 
 struct Cost:
@@ -81,40 +102,20 @@ end
 
 # Fixed data for each building by type
 struct BuildingFixedData:
-    # member type_id : felt pas besoin car utilisé dans storage_var
-    member upgrade_cost : Cost
-    member daily_cost : Cost
-    member daily_harvest : Cost
+    member upgrade_cost : MultipleResources
+    member daily_cost : MultipleResources
+    member daily_harvest : MultipleResources
     member pop_max : felt
     member pop_min : felt
 end
 
 struct BuildingData:
-    # member id : felt -> idem dans storage_var
     member type_id : felt
     member level : felt
     member pop : felt
     member time_created : felt
     member last_repair : felt
 end
-
-struct HarvestResourceBuilding:
-    member resource_id : felt
-    member resource_qty : felt
-end
-
-# struct ResourcesData:
-#     member gold : felt
-#     member wood : felt
-#     member rock : felt
-#     member meat : felt
-#     member vegetables : felt
-#     member cereal : felt
-#     member metal : felt
-#     member copper : felt
-#     member coal : felt
-#     member phosphore : felt
-# end
 
 # struct Gabelous:
 #     member gabelous_type : felt

@@ -46,35 +46,20 @@ describe("Starknet", function () {
     console.log("Test2 contract", testContract.address);
   });
 
-
-  // it("Test value", async function () {
-  //   // Add Maps_ERC721 addr in Minter contract
-  //   console.log('timestamp start', Date.now())
-  //   const txHash = await accountArbitrer.invoke(
-  //     testContract,
-  //     "calcul_value",
-  //     {
-  //       value: 7,
-  //       multiplier: A3,
-  //     }
-  //   );
-  //   console.log('timestamp end', Date.now())
-  //
-  //   const { value } = await accountArbitrer.call(
-  //     testContract,
-  //     "get_values"
-  //   );
-  //   console.log("value", value);
-  // });
-
   it("Test value", async function () {
     console.log('timestamp start', Date.now())
     const txHash = await accountArbitrer.invoke(
       testContract,
       "compose",
       {
-        bArr: [100000, 10000, 1000, 100, 10],
-        values: [0, 4, 9, 2, 1, 0],
+        bArr: [1000000000000000,
+               100000000000000,   10000000000000,
+               1000000000000,     100000000000,
+               10000000000,       1000000000,
+               100000000,         10000000,
+               1000000,           100000,
+               10000, 1000, 100, 10],
+        values: [1, 4, 1, 1, 1, 0, 9, 7, 5, 4, 3, 2, 1, 9, 1, 0],
       }
     );
     console.log('timestamp end', Date.now())
@@ -86,22 +71,6 @@ describe("Starknet", function () {
     console.log("composition", comp);
   });
 
-  // it("Get comp", async function () {
-  //   // Add Maps_ERC721 addr in Minter contract
-  //   console.log('timestamp start', Date.now())
-  //   const txHash = await accountArbitrer.invoke(
-  //     testContract,
-  //     "add_all"
-  //   );
-  //   console.log('timestamp end', Date.now())
-  //
-  //   const { comp } = await accountArbitrer.call(
-  //     testContract,
-  //     "view_composition",
-  //   );
-  //   console.log("composition", comp);
-  // });
-
   it("decompose", async function () {
     // Add Maps_ERC721 addr in Minter contract
     console.log('timestamp start', Date.now())
@@ -109,8 +78,18 @@ describe("Starknet", function () {
       testContract,
       "decompose",
       {
-        multArr: [5, 4, 3, 2, 1, 117],
-        bArr: [100000, 10000, 1000, 100, 10],
+        //multArr: [5, 4, 3, 2, 1, 117],
+        bArr: [
+              1000000000000000,
+              100000000000000,   10000000000000,
+              1000000000000,     100000000000,
+              10000000000,       1000000000,
+              100000000,         10000000,
+              1000000,           100000,
+              10000,             1000,
+              100,               10
+        ],
+        //cArr: [100001, 10001, 1001, 101, 11],
         numChar: 3,
       }
     );
@@ -169,6 +148,95 @@ describe("Starknet", function () {
       }
     );
     console.log("decomp6", decomp6);
+    const { res : decomp } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 6
+      }
+    );
+    console.log("decomp 6", decomp);
+    const { res : decomp7 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 7
+      }
+    );
+    console.log("decomp7", decomp7);
+    const { res : decomp8 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 8
+      }
+    );
+    console.log("decomp8", decomp8);
+    const { res : decomp9 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 9
+      }
+    );
+    console.log("decomp9", decomp9);
+
+    const { res : decomp10 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 10
+      }
+    );
+    console.log("decomp10", decomp10);
+    const { res : decomp11 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 11
+      }
+    );
+    console.log("decomp11", decomp11);
+    const { res : decomp12 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 12
+      }
+    );
+    console.log("decomp12", decomp12);
+    const { res : decomp13 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 13
+      }
+    );
+    console.log("decomp13", decomp13);
+    const { res : decomp14 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 14
+      }
+    );
+    console.log("decomp14", decomp14);
+    const { res : decomp15 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 15
+      }
+    );
+    console.log("decomp15", decomp15);
+    const { res : decomp16 } = await accountArbitrer.call(
+      testContract,
+      "view_decomp",
+      {
+        i : 16
+      }
+    );
+    console.log("decomp16", decomp16);
   });
 
 
