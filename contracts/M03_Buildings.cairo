@@ -53,6 +53,24 @@ func _building_data(token_id : Uint256, building_id : felt, storage_index : felt
 end
 # storage_index = BuildingData.type_id, BuildingData.level, ...
 
+# Daily Cost size
+@storage_var
+func daily_costs_size(token_id : Uint256) -> (size : felt):
+end
+# Daily Harvest size
+@storage_var
+func daily_harvests_size(token_id : Uint256) -> (size : felt):
+end
+
+# Daily Cost array
+@storage_var
+func daily_costs_array(token_id : Uint256, id : felt) -> (value : felt):
+end
+
+# Daily Harvest array
+@storage_var
+func daily_harvests_array(token_id : Uint256, id : felt) -> (value : felt):
+end
 ##########
 # EVENTS #
 ##########
@@ -235,6 +253,12 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     let (daily_harvest_gold) = building_data.daily_harvest.gold_qty
     let (daily_harvest_energy) = building_data.daily_harvest.energy_qty
 
+    # Update size for cost and harvest array
+    daily_costs_size.write(token_id, daily_costs_len)
+    daily_harvests_size.write(token_id, daily_harvests_len)
+
+    # Fill storage_var with daily_costs and daily_harvest
+    fill_storage_var_array(token_id, daily_costs_len, daily_costs, daily_harvests_len, daily_harvests)
     # TODO : Update daily_harvest storage_var res + gold + energy
 
     let (id) = building_count.read(token_id)
@@ -402,6 +426,36 @@ func _build_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     return ()
 end
 
+
+### Fill array to return len and array of costs and harvests for payment
+func fill_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(token_id : Uint256) -> (daily_cost_len : felt, daily_cost : felt*, daily_harvest_len : felt, daily_harvest : felt*):
+    alloc_locals
+
+    let (local daily_cost : felt*) = alloc()
+    let (local daily_harvest : felt*) = alloc()
+
+    let (daily_cost_len) = daily_costs_size.read(token_id)
+    let (daily_harvest_len) = daily_harvests_size.read(token_id)
+
+    fill_daily_array(token_id, daily_cost_len, daily_cost)
+    fill_daily_array(token_id, daily_harvest_len, daily_harvest)
+end
+# Fill array daily_cost
+func fill_daily_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(token_id : Uint256, daily_len : felt, daily_array : felt*):
+
+    if daily_len == 0 :
+        return ()
+    end
+
+    let (costs) = daily_costs[daily_costs_len]
+    let (harvests) = daily_harvests[daily_harvests_len]
+    
+    daily_costs_array.write(token_id, daily_costs_len, costs)
+    daily_harvests_array.write(token_id, daily_harvests_len, harvests)
+
+    return fill_storage_var_array(token_id=token_id, daily_costs_len=daily_cost_len - 1, daily_costs=daily_costs, daily_harvests_len=daily_harvests_len - 1, daily_harvests=daily_harvests)
+end
+
 ######################
 # INTERNAL FUNCTIONS #
 ######################
@@ -470,3 +524,25 @@ func _can_build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
 end
 
 # _fetch_costs
+
+
+
+# fill storage_var of array
+func fill_storage_var_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(token_id : Uint256, daily_costs_len : felt, daily_costs : felt*, daily_harvests_len : felt, daily_harvests : felt*):
+
+    with_attr error_message("daily_harvests and daily_cost len are different."):
+        assert daily_harvests_len = daily_costs_len
+    end
+
+    if daily_harvests_len == 0 :
+        return ()
+    end
+
+    let (costs) = daily_costs[daily_costs_len]
+    let (harvests) = daily_harvests[daily_harvests_len]
+    
+    daily_costs_array.write(token_id, daily_costs_len, costs)
+    daily_harvests_array.write(token_id, daily_harvests_len, harvests)
+
+    return fill_storage_var_array(token_id=token_id, daily_costs_len=daily_cost_len - 1, daily_costs=daily_costs, daily_harvests_len=daily_harvests_len - 1, daily_harvests=daily_harvests)
+end
