@@ -46,13 +46,19 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     _minter_maps_address : felt,
     _s_maps_address : felt,
     _gold_address : felt,
-    _resources_address : felt
+    _resources_address : felt,
 ):
     arbitrer.write(arbitrer_address)
 
     # Writings logics between contracts
     # M03_Buildings can write to M02_Resources
-    can_write_to.(doing_writing=ModuleIds.M03_Buildings, being_written_to=ModuleIds.M02_Resources, 1)
+    can_write_to.write(
+        doing_writing=ModuleIds.M03_Buildings, being_written_to=ModuleIds.M02_Resources, value=1
+    )
+    # M01_Worlds can write to M02_Resources
+    can_write_to.write(
+        doing_writing=ModuleIds.M01_Worlds, being_written_to=ModuleIds.M02_Resources, value=1
+    )
 
     external_contracts.write(ExternalContractsIds.Maps, _maps_address)
     external_contracts.write(ExternalContractsIds.MinterMaps, _minter_maps_address)

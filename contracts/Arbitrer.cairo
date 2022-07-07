@@ -115,7 +115,7 @@ end
 @external
 func batch_set_controller_addresses{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(m01_addr : felt):
+}(m01_addr : felt, m02_addr : felt, m03_addr : felt):
     Ownable.assert_only_owner()
     let (controller) = controller_address.read()
 

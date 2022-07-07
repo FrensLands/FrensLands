@@ -103,7 +103,7 @@ namespace IERC721S_Maps:
 end
 
 @contract_interface
-namespace IERC20Gold:
+namespace IERC20FrensCoin:
     func name() -> (name : felt):
     end
 
@@ -116,6 +116,7 @@ namespace IERC20Gold:
     func totalSupply() -> (totalSupply : Uint256):
     end
 
+    #
     func balanceOf(account : felt) -> (balance : Uint256):
     end
 
@@ -131,12 +132,66 @@ namespace IERC20Gold:
     func approve(spender : felt, amount : Uint256) -> (success : felt):
     end
 
+    #
     func mint(to : felt, amount : Uint256):
+    end
+
+    #
+    func burnFrom(account : felt, amount : Uint256):
     end
 end
 
 @contract_interface
 namespace IERC1155:
+    #
+    func balanceOf(owner : felt, token_id : Uint256) -> (balance : Uint256):
+    end
+
+    func balanceOfBatch(
+        owners_len : felt, owners : felt*, tokens_id_len : felt, tokens_id : Uint256*
+    ) -> (balance_len : felt, balance : Uint256*):
+    end
+
+    func isApprovedForAll(account : felt, operator : felt) -> (res : felt):
+    end
+
+    func setApprovalForAll(operator : felt, approved : felt):
+    end
+
+    func safeTransferFrom(_from : felt, to : felt, id : Uint256, amount : Uint256):
+    end
+
+    func safeBatchTransferFrom(
+        _from : felt,
+        to : felt,
+        ids_len : felt,
+        ids : Uint256*,
+        amounts_len : felt,
+        amounts : Uint256*,
+    ):
+    end
+
+    #
+    func mint(to : felt, id : Uint256, amount : Uint256) -> ():
+    end
+
+    func mintBatch(
+        to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*
+    ) -> ():
+    end
+
+    #
+    func burn(_from : felt, id : Uint256, amount : Uint256):
+    end
+
+    func burnBatch(
+        _from : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*
+    ):
+    end
+end
+
+@contract_interface
+namespace IERC1155Maps:
     func balanceOf(owner : felt, token_id : Uint256) -> (balance : Uint256):
     end
 

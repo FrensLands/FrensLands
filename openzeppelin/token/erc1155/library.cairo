@@ -5,7 +5,12 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math import assert_not_zero, assert_not_equal
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_add, uint256_sub, uint256_le, uint256_check)
+    Uint256,
+    uint256_add,
+    uint256_sub,
+    uint256_le,
+    uint256_check,
+)
 from openzeppelin.introspection.IERC165 import IERC165
 from openzeppelin.token.erc1155.interfaces.IERC1155_Receiver import IERC1155_Receiver
 
@@ -28,8 +33,14 @@ end
 
 @event
 func TransferBatch(
-        operator : felt, from_ : felt, to : felt, ids_len : felt, ids : Uint256*, values_len : felt,
-        values : Uint256*):
+    operator : felt,
+    from_ : felt,
+    to : felt,
+    ids_len : felt,
+    ids : Uint256*,
+    values_len : felt,
+    values : Uint256*,
+):
 end
 
 @event
@@ -62,7 +73,8 @@ end
 #
 
 func ERC1155_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        uri_ : felt):
+    uri_ : felt
+):
     _setURI(uri_)
     return ()
 end
@@ -86,13 +98,15 @@ func ERC1155_supportsInterface(interface_id : felt) -> (is_supported : felt):
 end
 
 func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        uri : felt):
+    uri : felt
+):
     let (uri) = ERC1155_uri_.read()
     return (uri)
 end
 
 func ERC1155_balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        account : felt, id : Uint256) -> (balance : Uint256):
+    account : felt, id : Uint256
+) -> (balance : Uint256):
     with_attr error_message("ERC1155: balance query for the zero address"):
         assert_not_zero(account)
     end
@@ -101,8 +115,8 @@ func ERC1155_balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 end
 
 func ERC1155_balanceOfBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*) -> (
-        batch_balances_len : felt, batch_balances : Uint256*):
+    accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*
+) -> (batch_balances_len : felt, batch_balances : Uint256*):
     alloc_locals
     # Check args are equal length arrays
     with_attr error_message("ERC1155: accounts and ids length mismatch"):
@@ -117,7 +131,8 @@ func ERC1155_balanceOfBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
 end
 
 func ERC1155_isApprovedForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        account : felt, operator : felt) -> (is_approved : felt):
+    account : felt, operator : felt
+) -> (is_approved : felt):
     let (is_approved) = ERC1155_operator_approvals_.read(account=account, operator=operator)
     return (is_approved)
 end
@@ -127,7 +142,8 @@ end
 #
 
 func ERC1155_setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        operator : felt, approved : felt):
+    operator : felt, approved : felt
+):
     let (caller) = get_caller_address()
     # Non-zero caller asserted in called function
     _set_approval_for_all(owner=caller, operator=operator, approved=approved)
@@ -135,7 +151,8 @@ func ERC1155_setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 end
 
 func ERC1155_safeTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, to : felt, id : Uint256, amount : Uint256):
+    from_ : felt, to : felt, id : Uint256, amount : Uint256
+):
     let (caller) = get_caller_address()
     with_attr error_message("ERC1155: called from zero address"):
         assert_not_zero(caller)
@@ -148,9 +165,8 @@ func ERC1155_safeTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, 
 end
 
 func ERC1155_safeBatchTransferFrom{
-        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt,
-        amounts : Uint256*):
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(from_ : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*):
     let (caller) = get_caller_address()
     with_attr error_message("ERC1155: called from zero address"):
         assert_not_zero(caller)
@@ -166,7 +182,8 @@ end
 #
 
 func _safe_transfer_from{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, to : felt, id : Uint256, amount : Uint256):
+    from_ : felt, to : felt, id : Uint256, amount : Uint256
+):
     alloc_locals
     # Check args
     with_attr error_message("ERC1155: transfer to the zero address"):
@@ -206,8 +223,8 @@ func _safe_transfer_from{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 end
 
 func _safe_batch_transfer_from{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt,
-        amounts : Uint256*):
+    from_ : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*
+):
     alloc_locals
     with_attr error_message("ERC1155: ids and amounts length mismatch"):
         assert_not_zero(to)
@@ -221,13 +238,15 @@ func _safe_batch_transfer_from{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     safe_batch_transfer_from_iter(from_, to, len, ids, amounts)
     let (operator) = get_caller_address()
     TransferBatch.emit(operator, from_, to, ids_len, ids, amounts_len, amounts)
-    _do_safe_batch_transfer_acceptance_check(
-        operator, from_, to, ids_len, ids, amounts_len, amounts)
+    # _do_safe_batch_transfer_acceptance_check(
+    #     operator, from_, to, ids_len, ids, amounts_len, amounts
+    # )
     return ()
 end
 
 func ERC1155_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        to : felt, id : Uint256, amount : Uint256):
+    to : felt, id : Uint256, amount : Uint256
+):
     let (caller) = get_caller_address()
     with_attr error_message("ERC1155: called from zero address"):
         assert_not_zero(caller)
@@ -258,7 +277,8 @@ func ERC1155_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
 end
 
 func ERC1155_mint_batch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*):
+    to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*
+):
     alloc_locals
     let (caller) = get_caller_address()
     with_attr error_message("ERC1155: called from zero address"):
@@ -283,13 +303,15 @@ func ERC1155_mint_batch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         ids_len=ids_len,
         ids=ids,
         values_len=amounts_len,
-        values=amounts)
-    _do_safe_batch_transfer_acceptance_check(operator, 0, to, ids_len, ids, amounts_len, amounts)
+        values=amounts,
+    )
+    # _do_safe_batch_transfer_acceptance_check(operator, 0, to, ids_len, ids, amounts_len, amounts)
     return ()
 end
 
 func ERC1155_burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, id : Uint256, amount : Uint256):
+    from_ : felt, id : Uint256, amount : Uint256
+):
     alloc_locals
     let (caller) = get_caller_address()
     with_attr error_message("ERC1155: called from zero address"):
@@ -314,7 +336,8 @@ func ERC1155_burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
 end
 
 func ERC1155_burn_batch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*):
+    from_ : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*
+):
     alloc_locals
     let (caller) = get_caller_address()
     with_attr error_message("ERC1155: called from zero address"):
@@ -338,7 +361,8 @@ func ERC1155_burn_batch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         ids_len=ids_len,
         ids=ids,
         values_len=amounts_len,
-        values=amounts)
+        values=amounts,
+    )
     return ()
 end
 
@@ -347,7 +371,8 @@ end
 #
 
 func _set_approval_for_all{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        owner : felt, operator : felt, approved : felt):
+    owner : felt, operator : felt, approved : felt
+):
     # check approved is bool
     assert approved * (approved - 1) = 0
     # since caller can now be 0
@@ -368,8 +393,8 @@ func _setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 end
 
 func _do_safe_transfer_acceptance_check{
-        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        operator : felt, from_ : felt, to : felt, id : Uint256, amount : Uint256):
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(operator : felt, from_ : felt, to : felt, id : Uint256, amount : Uint256):
     let (caller) = get_caller_address()
     # ERC1155_RECEIVER_ID = 0x4e2312e0
     let (is_supported) = IERC165.supportsInterface(to, IERC1155_RECEIVER_ID)
@@ -391,15 +416,23 @@ func _do_safe_transfer_acceptance_check{
 end
 
 func _do_safe_batch_transfer_acceptance_check{
-        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        operator : felt, from_ : felt, to : felt, ids_len : felt, ids : Uint256*,
-        amounts_len : felt, amounts : Uint256*):
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(
+    operator : felt,
+    from_ : felt,
+    to : felt,
+    ids_len : felt,
+    ids : Uint256*,
+    amounts_len : felt,
+    amounts : Uint256*,
+):
     let (caller) = get_caller_address()
     # Confirm supports IERC1155Reciever interface
     let (is_supported) = IERC165.supportsInterface(to, IERC1155_RECEIVER_ID)
     if is_supported == 1:
         let (selector) = IERC1155_Receiver.onERC1155BatchReceived(
-            to, operator, from_, ids_len, ids, amounts_len, amounts)
+            to, operator, from_, ids_len, ids, amounts_len, amounts
+        )
 
         # Confirm onBatchERC1155Recieved selector returned
         with_attr error_message("ERC1155: ERC1155Receiver rejected tokens"):
@@ -421,7 +454,8 @@ end
 #
 
 func balance_of_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        len : felt, accounts : felt*, ids : Uint256*, batch_balances : Uint256*):
+    len : felt, accounts : felt*, ids : Uint256*, batch_balances : Uint256*
+):
     if len == 0:
         return ()
     end
@@ -434,12 +468,13 @@ func balance_of_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     let (balance : Uint256) = ERC1155_balanceOf(account, id)
     assert [batch_balances] = balance
     return balance_of_batch_iter(
-        len - 1, accounts + 1, ids + Uint256.SIZE, batch_balances + Uint256.SIZE)
+        len - 1, accounts + 1, ids + Uint256.SIZE, batch_balances + Uint256.SIZE
+    )
 end
 
 func safe_batch_transfer_from_iter{
-        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, to : felt, len : felt, ids : Uint256*, amounts : Uint256*):
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(from_ : felt, to : felt, len : felt, ids : Uint256*, amounts : Uint256*):
     # Base case
     alloc_locals
     if len == 0:
@@ -476,11 +511,13 @@ func safe_batch_transfer_from_iter{
 
     # Recursive call
     return safe_batch_transfer_from_iter(
-        from_, to, len - 1, ids + Uint256.SIZE, amounts + Uint256.SIZE)
+        from_, to, len - 1, ids + Uint256.SIZE, amounts + Uint256.SIZE
+    )
 end
 
 func mint_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        to : felt, len : felt, ids : Uint256*, amounts : Uint256*):
+    to : felt, len : felt, ids : Uint256*, amounts : Uint256*
+):
     # Base case
     alloc_locals
     if len == 0:
@@ -507,7 +544,8 @@ func mint_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 func burn_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        from_ : felt, len : felt, ids : Uint256*, amounts : Uint256*):
+    from_ : felt, len : felt, ids : Uint256*, amounts : Uint256*
+):
     # Base case
     alloc_locals
     if len == 0:

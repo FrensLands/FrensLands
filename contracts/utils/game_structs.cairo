@@ -19,6 +19,7 @@ namespace ExternalContractsIds:
     const S_Maps = 3
     const Gold = 4
     const Resources = 5
+    const ERC1155Maps = 6
 end
 
 namespace MapGroundType:
@@ -52,29 +53,29 @@ end
 
 namespace BuildingIds:
     const Cabin = 1
-    const Boulangerie = 2
-    const Mall = 3
-    const GroceryShop = 4
-    const Restaurant = 5
-    const CerealFarm = 6
-    const VegetableFarm = 7
-    const CowFarm = 8
-    const TreeFarm = 9
-    const Mine = 10
-    const Market = 11
-    const CoalPlant = 12
-    const Cinema = 13
-    const Bar = 14
-    const Library = 15
-    const SwimmingPool = 16
-    const PoliceStation = 17
-    const House = 18
-    const Appartment = 19
-    const Hotel = 20
-    const Lab = 21
-    const Hospital = 22
-    const Rock = 23
-    const Tree = 24
+    const Rock = 2
+    const Tree = 3
+    const House = 4
+    const Appartment = 5
+    const Hotel = 6
+    const Boulangerie = 7
+    const GroceryShop = 8
+    const Restaurant = 9
+    const Mall = 10
+    const Bar = 11
+    const Library = 12
+    const SwimmingPool = 13
+    const Cinema = 14
+    const Market = 15
+    const CerealFarm = 16
+    const VegetableFarm = 17
+    const CowFarm = 18
+    const TreeFarm = 19
+    const Mine = 20
+    const CoalPlant = 21
+    const PoliceStation = 22
+    const Hospital = 23
+    const Lab = 24
     const count = 24
 end
 
@@ -121,4 +122,10 @@ end
 
 namespace EventsIds:
     const Event1 = 1
+end
+
+struct NaturalResources:
+    member type : felt  # resource_id
+    member level : felt  # taille de l'objet
+    member quantity : felt
 end

@@ -1,3 +1,7 @@
+const MAP_X_SIZE = 40
+const MAP_Y_SIZE = 16
+const BLOCK_NUMBER = 640
+
 const DAY_LENGTH = 2
 const GOLD_START = 1000
 

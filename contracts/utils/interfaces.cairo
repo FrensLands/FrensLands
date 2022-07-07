@@ -1,5 +1,8 @@
 %lang starknet
 
+from starkware.cairo.common.uint256 import Uint256
+from contracts.utils.game_structs import BuildingFixedData
+
 # Interface for ModuleController
 @contract_interface
 namespace IModuleController:
@@ -32,56 +35,56 @@ namespace IModuleController:
 end
 
 @contract_interface
-namespace IModule01:
-    func get_map(tokenId : Uint256):
+namespace IM01Worlds:
+    func get_map_array(tokenId : Uint256) -> (data_len : felt, data : felt*):
     end
 
-    func start_game(tokenId : Uint256) -> ():
-    end
-
-    func pause_game(tokenId : Uint256) -> ():
-    end
-
-    func save_map(tokenId : Uint256) -> ():
+    func get_latest_block(tokenId : Uint256) -> (block_number : felt):
     end
 
     func get_game_status(tokenId : Uint256) -> (state : felt):
     end
 
-    func get_latest_block(tokenId : Uint256) -> (block_number : felt):
+    func _check_can_build(tokenId : Uint256, building_size : felt, pos_start : felt) -> (
+        bool : felt
+    ):
     end
 end
 
 @contract_interface
-namespace IModule02:
-end
-
-@contract_interface
-namespace IModule03:
-    func upgrade(
-        token_id : Uint256,
-        building_type_id : felt,
-        level : felt,
-        position : felt,
-        allocated_population : felt,
+namespace IM02Resources:
+    func fill_ressources_harvest(
+        tokenId : Uint256, daily_harvest_len : felt, daily_harvest : felt*
     ):
     end
 
-    func destroy(token_id : Uint256, building_unique_id : felt):
+    func fill_ressources_cost(tokenId : Uint256, daily_cost_len : felt, daily_cost : felt*):
     end
 
-    func move(token_id : Uint256, building_id : felt, level : felt):
+    func fill_gold_energy_harvest(tokenId : Uint256, daily_gold : felt, daily_energy : felt):
+    end
+
+    func fill_gold_energy_cost(tokenId : Uint256, daily_gold : felt, daily_energy : felt):
+    end
+
+    func update_population(tokenId : Uint256, allocated : felt, number : felt):
+    end
+end
+
+@contract_interface
+namespace IM03Buldings:
+    func view_fixed_data(type : felt, level : felt) -> (data : BuildingFixedData):
     end
 
     func get_building_count(token_id : Uint256) -> (count : felt):
     end
 
-    func view_fixed_data(type : felt, level : felt) -> (data : BuildingFixedData):
+    func get_all_building_ids(token_id : Uint256) -> (data_len : felt, data : felt*):
     end
 
     func get_building_data(token_id : Uint256, building_id) -> (data_len : felt, data : felt*):
     end
 
-    func get_all_building_ids(token_id : Uint256) -> (data_len : felt, data : felt*):
+    func get_upgrade_cost(building_type : felt, level : felt) -> (res : felt):
     end
 end
