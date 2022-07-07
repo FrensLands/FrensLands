@@ -440,10 +440,11 @@ func fill_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     fill_daily_array(token_id, daily_cost_len, daily_cost)
     fill_daily_array(token_id, daily_harvest_len, daily_harvest)
 end
-# Fill array daily_cost
-func fill_daily_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(token_id : Uint256, daily_len : felt, daily_array : felt*):
 
-    if daily_len == 0 :
+# Fill array daily_cost
+func fill_daily_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(token_id : Uint256, daily_len : felt, daily_array : felt*, id : felt):
+
+    if id == daily_len:
         return ()
     end
 
@@ -453,7 +454,7 @@ func fill_daily_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
     daily_costs_array.write(token_id, daily_costs_len, costs)
     daily_harvests_array.write(token_id, daily_harvests_len, harvests)
 
-    return fill_storage_var_array(token_id=token_id, daily_costs_len=daily_cost_len - 1, daily_costs=daily_costs, daily_harvests_len=daily_harvests_len - 1, daily_harvests=daily_harvests)
+    return fill_daily_array(token_id=token_id, daily_len=daily_len, daily_array=daily_array, id=id + 1)
 end
 
 ######################

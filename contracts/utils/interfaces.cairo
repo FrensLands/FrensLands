@@ -1,4 +1,6 @@
 %lang starknet
+from starkware.cairo.common.uint256 import Uint256
+from contracts.utils.game_structs import BuildingFixedData
 
 # Interface for ModuleController
 @contract_interface
