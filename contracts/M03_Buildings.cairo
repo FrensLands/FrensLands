@@ -10,7 +10,7 @@ from starkware.starknet.common.syscalls import (
 from starkware.cairo.common.uint256 import Uint256, uint256_sub
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le, is_le
-from starkware.cairo.common.math import assert_le
+from starkware.cairo.common.math import assert_le, assert_not_zero, split_felt, assert_lt_felt
 from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.utils.game_structs import (
@@ -23,7 +23,7 @@ from contracts.utils.game_structs import (
 )
 from contracts.utils.game_constants import GOLD_START
 
-from contracts.utils.tokens_interfaces import IERC721Maps, IERC20FrensCoin, IERC1155, 
+from contracts.utils.tokens_interfaces import IERC721Maps, IERC20FrensCoin, IERC1155
 from contracts.utils.interfaces import IModuleController, IM01Worlds, IM02Resources
 from contracts.utils.bArray import bArray
 from contracts.library.library_module import Module
@@ -32,6 +32,10 @@ from contracts.library.library_data import Data
 ###########
 # STORAGE #
 ###########
+
+@storage_var
+func can_initialize_() -> (address : felt):
+end
 
 # Fixed data of building
 @storage_var
@@ -84,11 +88,16 @@ func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_p
     pop_len : felt,
     pop : felt*,
 ):
+    let (caller) = get_caller_address()
+    can_initialize_.write(caller)
+
     if type_len == 0:
         return ()
     end
 
-    _initialize_global_data(type_len, type, level, building_cost, daily_cost, daily_harvest, pop)
+    _initialize_global_data(type_len, type, 1, building_cost, daily_cost, daily_harvest, pop)
+    _initialize_global_data(type_len, type, 2, building_cost, daily_cost, daily_harvest, pop)
+    _initialize_global_data(type_len, type, 3, building_cost, daily_cost, daily_harvest, pop)
 
     return ()
 end
@@ -156,7 +165,7 @@ end
 
 @external
 func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    token_id : Uint256,
+    tokenId : Uint256,
     building_type_id : felt,
     level : felt,
     pos_start : felt,
@@ -164,45 +173,11 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
 ):
     alloc_locals
 
+    # Check caller is owner of tokenId
     let (caller) = get_caller_address()
-
-    # TODO : Check caller is owner of token_id
-
-    let (erc1155_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.ERC1155Maps
-    )
-    let (frenscoins_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Gold
-    )
-
-    let (building_data : BuildingFixedData) = building_global_data.read(building_type_id, level)
-
-    # Fetch cost of upgrade
-    let (costs_len : felt, costs : felt*) = _get_costs_from_chain(
-        building_data.upgrade_cost.nb_resources, building_data.upgrade_cost.resources_qty
-    )
-    local upgrade_costs_struct : MultipleResources = building_data.upgrade_cost
-    local upgrade_cost_gold = upgrade_costs_struct.gold_qty
-    local upgrade_cost_energy = upgrade_costs_struct.energy_qty
-
-    let (local balance_coins) = IERC20FrensCoin.balanceOf(frenscoins_addr, caller)
-    let (felt_balance) = uint256_to_felt(balance)
-    let (enough_blance) = is_le(upgrade_cost_gold, felt_balance)
-    # if enough_blance == 1:
-    #     OK
-    # else:
-    #     return ()
-    # end
-
-    # TODO : Burn resources needed
-    IERC20FrensCoin.burnFrom(frenscoins_addr, caller, balance_coins)
-
-    # TO FINISH : Check owner has enough resources to build
-
-    # Move into this function
-    let (has_resources) = _has_resources(costs_len, costs)
-    with_attr error_message("M03_Buildings: caller has not enough resources."):
-        assert has_resources = 1
+    let (local bool) = _is_owner_token(caller, tokenId)
+    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
+        assert bool = 1
     end
 
     # Check owner can build this level
@@ -210,100 +185,167 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         assert_le(level, 3)
     end
 
+    # Fetch fixed building data
+    let (building_data : BuildingFixedData) = building_global_data.read(building_type_id, level)
+
+    # Fetch cost of upgrade. Formatted : [ID_RES1, QTY1, ID_RES2, QTY2, ...]
+    let (costs_len : felt, costs : felt*) = _get_costs_from_chain(
+        building_data.upgrade_cost.nb_resources, building_data.upgrade_cost.resources_qty
+    )
+    local upgrade_costs_struct : MultipleResources = building_data.upgrade_cost
+    local upgrade_cost_gold = upgrade_costs_struct.gold_qty
+    local upgrade_cost_energy = upgrade_costs_struct.energy_qty
+
+    # Check enough FrensCoins
+    let (controller) = Module.get_controller()
+    let (frenscoins_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Gold
+    )
+    let (local balance_coins) = IERC20FrensCoin.balanceOf(frenscoins_addr, caller)
+    let (felt_balance) = uint256_to_felt(balance_coins)
+    let (enough_balance) = is_le(upgrade_cost_gold, felt_balance)
+    with_attr error_message("M03_Buildings: caller has not enough FrensCoins."):
+        assert enough_balance = 1
+    end
+
+    # Check enough resources
+    let (erc1155_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Resources
+    )
+    let (has_resources) = _has_resources(caller, erc1155_addr, costs_len, costs)
+    with_attr error_message("M03_Buildings: caller has not enough resources."):
+        assert has_resources = 1
+    end
+
+    # Burn FrensCoins & resources needed
+    let (uint_costs) = felt_to_uint256(upgrade_cost_gold)
+    IERC20FrensCoin.burnFrom(frenscoins_addr, caller, uint_costs)
+    _pay_resources(caller, erc1155_addr, costs_len, costs)
+
     # Increment building ID
-    let (last_index) = building_index.read(token_id)
+    let (last_index) = building_index.read(tokenId)
     let (current_block) = get_block_number()
 
     # Check owner can build on this position on the map & check matType
-    let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Resources)
+    let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Worlds)
     IM01Worlds._check_can_build(m01_addr, tokenId, level, pos_start)
 
     # TODO : Write on the map the new data through M01
 
-    #   costs_len : felt, costs : felt*
-
-    # TODO : Burn Gold
-    # let (gold_cost) = building_data.upgrade_cost.gold_qty
-
-    # Decrement population
+    # allocate population
+    # TODO : cas où pas assez de population
     let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
     IM02Resources.update_population(m02_addr, tokenId, 1, allocated_population)
 
     # Build data for building
-    _building_data.write(token_id, last_index + 1, BuildingData.type_id, building_type_id)
-    _building_data.write(token_id, last_index + 1, BuildingData.level, level)
-    _building_data.write(token_id, last_index + 1, BuildingData.pop, allocated_population)
-    _building_data.write(token_id, last_index + 1, BuildingData.time_created, current_block)
-    _building_data.write(token_id, last_index + 1, BuildingData.last_repair, current_block)
+    _building_data.write(tokenId, last_index + 1, BuildingData.type_id, building_type_id)
+    _building_data.write(tokenId, last_index + 1, BuildingData.level, level)
+    _building_data.write(tokenId, last_index + 1, BuildingData.pop, allocated_population)
+    _building_data.write(tokenId, last_index + 1, BuildingData.time_created, current_block)
+    _building_data.write(tokenId, last_index + 1, BuildingData.last_repair, current_block)
 
-    building_index.write(token_id, last_index + 1)
+    building_index.write(tokenId, last_index + 1)
 
     # TODO : Calculer coûts et harvest en fonction de la population
 
-    # Update Daily Costs
+    # Update Daily Costs in M02_Resources
     # Fetch the costs formatted : [ID_RES1, QTY1, ID_RES2, QTY2, ...]
     let (daily_costs_len : felt, daily_costs : felt*) = _get_costs_from_chain(
         building_data.daily_cost.nb_resources, building_data.daily_cost.resources_qty
     )
-    IM02Resources.fill_ressources_cost(m02_addr, token_id, daily_costs_len, daily_costs)
+    IM02Resources.fill_ressources_cost(m02_addr, tokenId, daily_costs_len, daily_costs, 1)
 
     local daily_costs_struct : MultipleResources = building_data.daily_cost
     local daily_cost_gold = daily_costs_struct.gold_qty
     local daily_cost_energy = daily_costs_struct.energy_qty
-    IM02Resources.fill_gold_energy_cost(m02_addr, token_id, daily_cost_gold, daily_cost_energy)
+    IM02Resources.fill_gold_energy_cost(m02_addr, tokenId, daily_cost_gold, daily_cost_energy, 1)
 
     # Update daily_cost storage_var res + gold + energy in M02 Module
     # Fetch harvesting quantities [ID_RES1, QTY1, ID_RES2, QTY2, ...]
     let (daily_harvests_len : felt, daily_harvests : felt*) = _get_costs_from_chain(
         building_data.daily_harvest.nb_resources, building_data.daily_harvest.resources_qty
     )
-    IM02Resources.fill_ressources_harvest(m02_addr, token_id, daily_harvests_len, daily_harvests)
+    IM02Resources.fill_ressources_harvest(m02_addr, tokenId, daily_harvests_len, daily_harvests, 1)
 
     local daily_harvests_struct : MultipleResources = building_data.daily_harvest
     local daily_harvest_gold = daily_harvests_struct.gold_qty
     local daily_harvest_energy = daily_harvests_struct.energy_qty
-    IM02Resources.fill_gold_energy_harvest(m02_addr, token_id, daily_harvest_gold, daily_harvest_energy)
+    IM02Resources.fill_gold_energy_harvest(
+        m02_addr, tokenId, daily_harvest_gold, daily_harvest_energy, 1
+    )
 
-    let (id) = building_count.read(token_id)
-    building_count.write(token_id, id + 1)
+    let (id) = building_count.read(tokenId)
+    building_count.write(tokenId, id + 1)
 
-    Build.emit(caller, token_id, building_type_id)
+    Build.emit(caller, tokenId, building_type_id)
 
     return ()
 end
 
 @external
 func destroy{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    token_id : Uint256, building_unique_id : felt
+    tokenId : Uint256, building_unique_id : felt
 ):
     alloc_locals
 
+    let (controller) = Module.get_controller()
+
+    # Check caller is owner of tokenId
     let (caller) = get_caller_address()
+    let (local bool) = _is_owner_token(caller, tokenId)
+    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
+        assert bool = 1
+    end
 
-    # TODO : Check caller is owner of token_id
+    # Fetch population information
+    let (current_pop) = _building_data.read(tokenId, building_unique_id, BuildingData.pop)
+    let (building_type_id) = _building_data.read(tokenId, building_unique_id, BuildingData.type_id)
+    let (level) = _building_data.read(tokenId, building_unique_id, BuildingData.level)
 
-    # Decrement number of buildings
-    let (count) = building_count.read(token_id)
-    building_count.write(token_id, count - 1)
+    # Fetch fixed building data
+    let (building_data : BuildingFixedData) = building_global_data.read(building_type_id, level)
 
-    let (allocated_population) = _building_data.read(token_id, building_unique_id, BuildingData.pop)
-    let (level) = _building_data.read(token_id, building_unique_id, BuildingData.level)
+    # Update Daily Costs in M02_Resources
+    # TODO : calculate costs depending on allocated pop
+    let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    let (daily_costs_len : felt, daily_costs : felt*) = _get_costs_from_chain(
+        building_data.daily_cost.nb_resources, building_data.daily_cost.resources_qty
+    )
+    IM02Resources.fill_ressources_cost(m02_addr, tokenId, daily_costs_len, daily_costs, 0)
 
-    # TODO : In M02_Resources
-    #   - Decrement resources and update la storage_var du M02_Resources
-    #     avec les daily costs et les daily recettes
-    #   - increment available population
+    local daily_costs_struct : MultipleResources = building_data.daily_cost
+    local daily_cost_gold = daily_costs_struct.gold_qty
+    local daily_cost_energy = daily_costs_struct.energy_qty
+    IM02Resources.fill_gold_energy_cost(m02_addr, tokenId, daily_cost_gold, daily_cost_energy, 0)
+
+    # Update daily_cost storage_var res + gold + energy in M02 Module. Fetch harvesting quantities [ID_RES1, QTY1, ID_RES2, QTY2, ...]
+    let (daily_harvests_len : felt, daily_harvests : felt*) = _get_costs_from_chain(
+        building_data.daily_harvest.nb_resources, building_data.daily_harvest.resources_qty
+    )
+    IM02Resources.fill_ressources_harvest(m02_addr, tokenId, daily_harvests_len, daily_harvests, 0)
+
+    local daily_harvests_struct : MultipleResources = building_data.daily_harvest
+    local daily_harvest_gold = daily_harvests_struct.gold_qty
+    local daily_harvest_energy = daily_harvests_struct.energy_qty
+    IM02Resources.fill_gold_energy_harvest(
+        m02_addr, tokenId, daily_harvest_gold, daily_harvest_energy, 0
+    )
+
+    # Update population
+    IM02Resources.update_population(m02_addr, tokenId, 0, current_pop)
 
     # Destroy building
-    _building_data.write(token_id, building_unique_id, BuildingData.type_id, 0)
-    _building_data.write(token_id, building_unique_id, BuildingData.level, 0)
-    _building_data.write(token_id, building_unique_id, BuildingData.pop, 0)
-    _building_data.write(token_id, building_unique_id, BuildingData.time_created, 0)
-    _building_data.write(token_id, building_unique_id, BuildingData.last_repair, 0)
+    _building_data.write(tokenId, building_unique_id, BuildingData.type_id, 0)
+    _building_data.write(tokenId, building_unique_id, BuildingData.level, 0)
+    _building_data.write(tokenId, building_unique_id, BuildingData.pop, 0)
+    _building_data.write(tokenId, building_unique_id, BuildingData.time_created, 0)
+    _building_data.write(tokenId, building_unique_id, BuildingData.last_repair, 0)
 
-    # LATER : Potentially get back some of the resources ?
+    # Decrement number of buildings
+    let (count) = building_count.read(tokenId)
+    building_count.write(tokenId, count - 1)
 
-    DestroyBuilding.emit(caller, token_id, building_unique_id)
+    DestroyBuilding.emit(caller, tokenId, building_unique_id)
 
     return ()
 end
@@ -339,9 +381,67 @@ func move{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     return ()
 end
 
+# TODO : Function callable only by Arbiter to add additional levels and data
+# @external
+# func add_additional_fixed_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#     token_id : Uint256, building_id : felt, level : felt
+# ):
+#     _only_approved()
+
+# return ()
+# end
+
+@external
+func initialize_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256,
+    building_type_id_len : felt,
+    building_type_id : felt*,
+    level_len : felt,
+    level : felt*,
+):
+    let (caller) = get_caller_address()
+    let (can_initialize) = can_initialize_.read()
+    assert caller = can_initialize
+
+    _initialize_resources_iter(tokenId, building_type_id, level_len, level)
+
+    building_count.write(tokenId, 1)
+
+    return ()
+end
+
+func _initialize_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, building_type_id : felt*, level_len : felt, level : felt*
+):
+    if level_len == 0:
+        return ()
+    end
+
+    # Increment building ID
+    let (last_index) = building_index.read(tokenId)
+    let (current_block) = get_block_number()
+
+    _building_data.write(tokenId, last_index + 1, BuildingData.type_id, building_type_id[0])
+    _building_data.write(tokenId, last_index + 1, BuildingData.level, level[0])
+    _building_data.write(tokenId, last_index + 1, BuildingData.time_created, current_block)
+
+    building_index.write(tokenId, last_index + 1)
+
+    return _initialize_resources_iter(tokenId, building_type_id + 1, level_len - 1, level + 1)
+end
+
 ##################
 # VIEW FUNCTIONS #
 ##################
+
+# Get fixed data of buildings by type and level
+@view
+func view_fixed_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    type : felt, level : felt
+) -> (data : BuildingFixedData):
+    let (data : BuildingFixedData) = building_global_data.read(type, level)
+    return (data)
+end
 
 # Get current number of buildings built by a user
 @view
@@ -352,13 +452,20 @@ func get_building_count{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_
     return (count)
 end
 
-# Get fixed data of buildings by type and level
+# Returns an array of building ids with type
 @view
-func view_fixed_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    type : felt, level : felt
-) -> (data : BuildingFixedData):
-    let (data : BuildingFixedData) = building_global_data.read(type, level)
-    return (data)
+func get_all_building_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    token_id : Uint256
+) -> (data_len : felt, data : felt*):
+    alloc_locals
+    let (local data : felt*) = alloc()
+    local data_size = 0
+
+    let (max_count) = building_count.read(token_id)
+
+    _get_all_building_ids_iter(token_id, 0, data_size, data, max_count * 2)
+
+    return (max_count * 2, data)
 end
 
 # Get dynamic data of building from unique building_id
@@ -385,23 +492,7 @@ func get_building_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_c
     return (5, data)
 end
 
-# Returns an array of building ids with type
-@view
-func get_all_building_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    token_id : Uint256
-) -> (data_len : felt, data : felt*):
-    alloc_locals
-    let (local data : felt*) = alloc()
-    local data_size = 0
-
-    let (max_count) = building_count.read(token_id)
-
-    _build_ids(token_id, 0, data_size, data, max_count * 2)
-
-    return (max_count * 2, data)
-end
-
-func _build_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+func _get_all_building_ids_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     token_id : Uint256, counter : felt, data_size : felt, data : felt*, max_count : felt
 ):
     if data_size == max_count:
@@ -421,9 +512,9 @@ func _build_ids{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     if exists == 1:
         assert data[0] = counter
         assert data[1] = new_b
-        _build_ids(token_id, counter + 1, data_size + 2, data + 2, max_count)
+        _get_all_building_ids_iter(token_id, counter + 1, data_size + 2, data + 2, max_count)
     else:
-        _build_ids(token_id, counter + 1, data_size, data, max_count)
+        _get_all_building_ids_iter(token_id, counter + 1, data_size, data, max_count)
     end
 
     return ()
@@ -444,35 +535,45 @@ end
 # INTERNAL FUNCTIONS #
 ######################
 
-# @notice decompose the costs of building to build
-# @dev takes a chain of number formatted [resource_id_0][qty_0][qty_0][resource_id_1][qty_1][qty_1]...
-# @param resources_qty : the chain of numbers
-# @param nb_resources : nb of resources
+# @notice checks player has the resources
+# @param player address
+# @param costs [ID_RES1, QTY1, ID_RES2, QTY2, ...]
 func _has_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    costs_len : felt, costs : felt*
+    player : felt, erc1155_addr : felt, costs_len : felt, costs : felt*
 ) -> (bool : felt):
     alloc_locals
     if costs_len == 0:
         return (TRUE)
     end
 
-    # let (caller) = get_caller_address()
-    # let (controller) = Module.get_controller()
-    # let (erc1155_addr) = IModuleController.get_external_contract_address(
-    #     controller, ExternalContractsIds.Resources
-    # )
+    let (uint_id) = felt_to_uint256(costs[0])
+    let (balance : Uint256) = IERC1155.balanceOf(erc1155_addr, player, uint_id)
+    let (felt_balance) = uint256_to_felt(balance)
 
-    # TODO : Call balance of owner et token_id = costs[0]
+    let (local check) = is_le(costs[1], felt_balance)
+    if check == 0:
+        return (FALSE)
+    end
 
-    # let (balance : Uint256) = IERC1155.balanceOf(caller, costs[0])
-    # let (local check) = is_le(costs[1], balance.low)
-    # if check == 1:
-    #     return _has_resources(costs_len - 2, costs + 2)
-    # else:
-    #     return (FALSE)
-    # end
+    return _has_resources(player, erc1155_addr, costs_len - 2, costs + 2)
+end
 
-    return (TRUE)
+# @notice pays resources of upgrade
+# @param player address
+# @param costs [ID_RES1, QTY1, ID_RES2, QTY2, ...]
+func _pay_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    player : felt, erc1155_addr : felt, costs_len : felt, costs : felt*
+) -> (bool : felt):
+    alloc_locals
+    if costs_len == 0:
+        return (TRUE)
+    end
+
+    let (uint_id) = felt_to_uint256(costs[0])
+    let (uint_qty) = felt_to_uint256(costs[1])
+    IERC1155.burn(erc1155_addr, player, uint_id, uint_qty)
+
+    return _has_resources(player, erc1155_addr, costs_len - 2, costs + 2)
 end
 
 # @notice decompose the costs of building to build
@@ -497,13 +598,43 @@ func _get_costs_from_chain{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
     return (nb_resources * 2, costs)
 end
 
-# TODO :
-# @notice check player can build on a given position
-func _can_build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    nb_resources : felt, resources_qty : felt
-) -> ():
-    # return ret_array_len : felt, ret_array : felt*
+# @notice Checks write-permission of the calling contract.
+func _only_approved{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    # Get the address of the module trying to write to this contract.
+    let (caller) = get_caller_address()
+    let (controller) = Module.get_controller()
+    let (bool) = IModuleController.has_write_access(
+        contract_address=controller, address_attempting_to_write=caller
+    )
+    assert_not_zero(bool)
     return ()
 end
 
-# _fetch_costs
+func _is_owner_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    caller : felt, tokenId : Uint256
+) -> (success : felt):
+    let (controller) = Module.get_controller()
+    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Maps
+    )
+    # Check caller is owner of tokenId
+    let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
+    if owner == caller:
+        return (1)
+    end
+    return (0)
+end
+
+func felt_to_uint256{range_check_ptr}(x) -> (uint_x : Uint256):
+    let (high, low) = split_felt(x)
+    return (Uint256(low=low, high=high))
+end
+
+func uint256_to_felt{range_check_ptr}(value : Uint256) -> (value : felt):
+    assert_lt_felt(value.high, 2 ** 123)
+    return (value.high * (2 ** 128) + value.low)
+end
+
+# Add new data to global fixed data
+# Pour ajouter des levels, ou bien de nouveaux buildings
+# Only par arbiter

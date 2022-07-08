@@ -52,7 +52,7 @@ func set_address_of_controller{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     return ()
 end
 
-# Called to replace the contract that controls the Arbitrer
+# Called to replace the contract that controls the Arbiter
 @external
 func replace_self{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_arbiter_address : felt
@@ -62,14 +62,14 @@ func replace_self{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     # The ModuleController has a fixed address. The Arbiter
     # may be upgraded by calling the ModuleController and declaring
     # the new Arbiter.
-    IModuleController.appoint_new_arbitrer(
-        contract_address=controller, new_arbitrer=new_arbiter_address
+    IModuleController.appoint_new_arbiter(
+        contract_address=controller, new_arbiter=new_arbiter_address
     )
 
     return ()
 end
 
-# Called to appoint a new owner of Arbitrer contract
+# Called to appoint a new owner of Arbiter contract
 @external
 func appoint_new_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_owner_address : felt

@@ -10,9 +10,9 @@ from contracts.utils.game_structs import ModuleIds, ExternalContractsIds
 # STORAGE #
 ###########
 
-# Stores the address of the Arbitrer contract
+# Stores the address of the Arbiter contract
 @storage_var
-func arbitrer() -> (address : felt):
+func arbiter() -> (address : felt):
 end
 
 # Stores contract address for each module id
@@ -41,14 +41,14 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    arbitrer_address : felt,
+    arbiter_address : felt,
     _maps_address : felt,
     _minter_maps_address : felt,
-    _s_maps_address : felt,
+    # _s_maps_address : felt,
     _gold_address : felt,
     _resources_address : felt,
 ):
-    arbitrer.write(arbitrer_address)
+    arbiter.write(arbiter_address)
 
     # Writings logics between contracts
     # M03_Buildings can write to M02_Resources
@@ -59,10 +59,14 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     can_write_to.write(
         doing_writing=ModuleIds.M01_Worlds, being_written_to=ModuleIds.M02_Resources, value=1
     )
+    # M01_Worlds can write to M03_Buildings
+    can_write_to.write(
+        doing_writing=ModuleIds.M01_Worlds, being_written_to=ModuleIds.M03_Buildings, value=1
+    )
 
     external_contracts.write(ExternalContractsIds.Maps, _maps_address)
     external_contracts.write(ExternalContractsIds.MinterMaps, _minter_maps_address)
-    external_contracts.write(ExternalContractsIds.S_Maps, _s_maps_address)
+    # external_contracts.write(ExternalContractsIds.S_Maps, _s_maps_address)
     external_contracts.write(ExternalContractsIds.Gold, _gold_address)
     external_contracts.write(ExternalContractsIds.Resources, _resources_address)
 
@@ -73,35 +77,35 @@ end
 # EXTERNAL FUNCTIONS #
 ######################
 
-# Called by the current arbitrer to replace itself
+# Called by the current arbiter to replace itself
 @external
-func appoint_new_arbitrer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    new_arbitrer : felt
+func appoint_new_arbiter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    new_arbiter : felt
 ):
-    only_arbitrer()
-    arbitrer.write(new_arbitrer)
+    only_arbiter()
+    arbiter.write(new_arbiter)
 
     return ()
 end
 
-# Called by current arbitrer to set new address mappings
+# Called by current arbiter to set new address mappings
 @external
 func set_address_for_module_id{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     module_id : felt, module_address : felt
 ):
-    only_arbitrer()
+    only_arbiter()
     module_id_of_address.write(module_address, module_id)
     address_of_module_id.write(module_id, module_address)
 
     return ()
 end
 
-# Called by current arbitrer to new address mappings in batch
+# Called by current arbiter to new address mappings in batch
 @external
 func set_initial_module_addresses{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(m01_addr : felt, m02_addr : felt, m03_addr : felt):
-    only_arbitrer()
+    only_arbiter()
 
     # for each module update the storage_vars module_id_of_address & address_of_module_id
     module_id_of_address.write(address=m01_addr, value=ModuleIds.M01_Worlds)
@@ -116,12 +120,12 @@ func set_initial_module_addresses{
     return ()
 end
 
-# Called by arbitrer to authorise write access between two modules
+# Called by arbiter to authorise write access between two modules
 @external
 func set_write_access{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     module_id_doing_writing : felt, module_id_being_written_to : felt
 ):
-    only_arbitrer()
+    only_arbiter()
     can_write_to.write(module_id_doing_writing, module_id_being_written_to, 1)
 
     return ()
@@ -131,7 +135,7 @@ end
 func update_external_contracts{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     external_contract_id : felt, external_contract_address : felt
 ):
-    only_arbitrer()
+    only_arbiter()
     external_contracts.write(external_contract_id, external_contract_address)
 
     return ()
@@ -150,11 +154,11 @@ func get_module_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 end
 
 @view
-func get_arbitrer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    arbitrer_addr : felt
+func get_arbiter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    arbiter_addr : felt
 ):
-    let (arbitrer_addr) = arbitrer.read()
-    return (arbitrer_addr)
+    let (arbiter_addr) = arbiter.read()
+    return (arbiter_addr)
 end
 
 @view
@@ -206,12 +210,12 @@ end
 # PRIVATE FUNCTIONS #
 #####################
 
-# checks person calling is arbitrer
-func only_arbitrer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+# checks person calling is arbiter
+func only_arbiter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
     let (local caller) = get_caller_address()
-    let (current_arbitrer) = arbitrer.read()
-    assert caller = current_arbitrer
+    let (current_arbiter) = arbiter.read()
+    assert caller = current_arbiter
 
     return ()
 end

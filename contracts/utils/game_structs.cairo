@@ -19,7 +19,6 @@ namespace ExternalContractsIds:
     const S_Maps = 3
     const Gold = 4
     const Resources = 5
-    const ERC1155Maps = 6
 end
 
 namespace MapGroundType:

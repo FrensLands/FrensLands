@@ -9,7 +9,7 @@ namespace IModuleController:
     func get_module_address(module_id : felt) -> (address : felt):
     end
 
-    func get_arbitrer() -> (arbitrer_addr : felt):
+    func get_arbiter() -> (arbiter_addr : felt):
     end
 
     func has_write_access(address_attempting_to_write : felt) -> (success : felt):
@@ -18,7 +18,7 @@ namespace IModuleController:
     func get_external_contract_address(external_contract_id : felt) -> (address : felt):
     end
 
-    func appoint_new_arbitrer(new_arbitrer : felt):
+    func appoint_new_arbiter(new_arbiter : felt):
     end
 
     func set_address_for_module_id(module_id : felt, module_address : felt):
@@ -51,17 +51,23 @@ end
 @contract_interface
 namespace IM02Resources:
     func fill_ressources_harvest(
-        tokenId : Uint256, daily_harvest_len : felt, daily_harvest : felt*
+        tokenId : Uint256, daily_harvest_len : felt, daily_harvest : felt*, operation : felt
     ):
     end
 
-    func fill_ressources_cost(tokenId : Uint256, daily_cost_len : felt, daily_cost : felt*):
+    func fill_ressources_cost(
+        tokenId : Uint256, daily_cost_len : felt, daily_cost : felt*, operation : felt
+    ):
     end
 
-    func fill_gold_energy_harvest(tokenId : Uint256, daily_gold : felt, daily_energy : felt):
+    func fill_gold_energy_harvest(
+        tokenId : Uint256, daily_gold : felt, daily_energy : felt, operation : felt
+    ):
     end
 
-    func fill_gold_energy_cost(tokenId : Uint256, daily_gold : felt, daily_energy : felt):
+    func fill_gold_energy_cost(
+        tokenId : Uint256, daily_gold : felt, daily_energy : felt, operation : felt
+    ):
     end
 
     func update_population(tokenId : Uint256, allocated : felt, number : felt):
@@ -71,6 +77,15 @@ namespace IM02Resources:
     end
 
     func get_latest_block(tokenId : Uint256) -> (block_number : felt):
+    end
+
+    func get_block_start(tokenId : Uint256) -> (block_number : felt):
+    end
+
+    func get_population(tokenId : Uint256) -> (pop_len : felt, pop : felt*):
+    end
+
+    func _receive_resources_erc20(caller : felt, amount : Uint256):
     end
 end
 
@@ -89,5 +104,14 @@ namespace IM03Buldings:
     end
 
     func get_upgrade_cost(building_type : felt, level : felt) -> (res : felt):
+    end
+
+    func initialize_resources(
+        tokenId : Uint256,
+        building_type_id_len : felt,
+        building_type_id : felt*,
+        level_len : felt,
+        level : felt*,
+    ):
     end
 end
