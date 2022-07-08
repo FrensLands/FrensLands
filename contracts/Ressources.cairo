@@ -1,18 +1,13 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.math import assert_not_zero, split_felt, assert_lt_felt
-from starkware.starknet.common.syscalls import get_caller_address
+from starkware.cairo.common.math import assert_not_zero, split_felt, assert_lt_felt, assert_le
+from starkware.starknet.common.syscalls import get_caller_address, get_block_number
 from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le, is_le
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.alloc import alloc
 
-
-from contracts.utils.interfaces import IModuleController
-
 from openzeppelin.access.ownable import Ownable
-
-from contracts.utils.game_structs import Cost, BuildingFixedData
 
 #############
 # Interface #
@@ -30,21 +25,6 @@ namespace IERC1155:
     end
 end
     
-@contract_interface
-namespace IM03Buldings:
-    func get_daily_cost(token_id : Uint256) -> (daily_cost_len : felt, daily_cost : felt*):
-    end
-
-    func get_daily_harvest(token_id : Uint256) -> (daily_harvest_len : felt, daily_harvest : felt*):
-    end
-
-    func get_harvest_gold_energy(token_id : Uint256) -> (daily_harvest_gold : felt, daily_harvest_energy : felt):
-    end
-
-    func get_cost_gold_energy(token_id : Uint256) -> (daily_cost_gold : felt, daily_cost_energy : felt):
-    end
-end
-
 @contract_interface
 namespace IERC20:
     func balanceOf(account : felt) -> (balance : Uint256):
@@ -103,17 +83,15 @@ end
 func gold_address_() -> (address : felt):
 end
 
+# Block number 
+@storage_var
+func block_number_(token_id : felt) -> (block : felt):
+end
+
+
 ##########
 # EVENTS #
 ##########
-
-@event
-func StartPayTaxes(owner : felt, token_id : Uint256):
-end
-
-@event
-func EndPayTaxes(owner : felt, data : BuildingFixedData):
-end
 
 
 func felt_to_uint256{range_check_ptr}(x) -> (uint_x : Uint256):
@@ -140,6 +118,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     m03_address.write(address_m3)
     erc1155_address_.write(erc1155_address)
     gold_address_.write(gold_erc20_address)
+
     return ()
 end
 
@@ -219,6 +198,18 @@ end
 @external
 func claim_resources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256):
     alloc_locals
+    ### Check block
+    let (block_number) = get_block_number()
+    let (old_block_number) = block_number_.read(tokenId)
+    let old_block_number = old_block_number + 2
+     
+    with_attr error_message("You need to wait 2 block before claim"):
+        assert_le(old_block_number, block_number)
+    end
+
+    block_number_.write(tokenId, block_number)
+
+    ### Get all needed values
     let (address_m3) = m03_address.read()
     let (erc1155_address) = erc1155_address_.read()
     let (local daily_harvest_gold) = daily_gold_harvest_.read(tokenId)
