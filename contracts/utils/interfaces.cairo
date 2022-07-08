@@ -39,9 +39,6 @@ namespace IM01Worlds:
     func get_map_array(tokenId : Uint256) -> (data_len : felt, data : felt*):
     end
 
-    func get_latest_block(tokenId : Uint256) -> (block_number : felt):
-    end
-
     func get_game_status(tokenId : Uint256) -> (state : felt):
     end
 
@@ -68,6 +65,12 @@ namespace IM02Resources:
     end
 
     func update_population(tokenId : Uint256, allocated : felt, number : felt):
+    end
+
+    func update_block_number(tokenId : Uint256, _block_nb : felt):
+    end
+
+    func get_latest_block(tokenId : Uint256) -> (block_number : felt):
     end
 end
 
