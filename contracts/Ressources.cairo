@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.math import assert_not_zero, split_felt, assert_lt_felt, assert_le
+from starkware.cairo.common.math import assert_not_zero, split_felt, assert_lt_felt, assert_le, unsigned_div_rem
 from starkware.starknet.common.syscalls import get_caller_address, get_block_number
 from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le, is_le
 from starkware.cairo.common.uint256 import Uint256
@@ -85,7 +85,7 @@ end
 
 # Block number 
 @storage_var
-func block_number_(token_id : felt) -> (block : felt):
+func block_number_(token_id : Uint256) -> (block : felt):
 end
 
 
@@ -209,23 +209,38 @@ func claim_resources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 
     block_number_.write(tokenId, block_number)
 
-    ### Get all needed values
+     ### Get all needed values
     let (address_m3) = m03_address.read()
     let (erc1155_address) = erc1155_address_.read()
     let (local daily_harvest_gold) = daily_gold_harvest_.read(tokenId)
     let (daily_cost_gold) = daily_gold_cost_.read(tokenId)
     let (daily_harvest_energy) = daily_energy_harvest_.read(tokenId)
     let (daily_cost_energy) =daily_energy_cost_.read(tokenId)
+
+    ### Multiplier if we are more than 2 block
+    local multiplier = block_number - old_block_number
+    let (is_zero) = is_not_zero(multiplier)
+    if is_zero == 1:
+        let (q, _) = unsigned_div_rem(multiplier, 2)
+        let new_daily_harvest_gold = daily_harvest_gold * q
+        let new_daily_cost_gold = daily_cost_gold * q
+        let new_daily_harvest_energy = daily_harvest_energy * q
+        let new_daily_cost_energy = daily_cost_energy * q
+        pay_ressources(erc1155_address, tokenId, 9, q)
+        pay_gold(new_daily_harvest_gold, new_daily_cost_gold)
+        pay_energy(tokenId, new_daily_harvest_energy, new_daily_cost_energy)
+        return()
+    end
    
     ### Pay all gold ressource and energy
-    pay_ressources(erc1155_address, tokenId, 9)
+    pay_ressources(erc1155_address, tokenId, 9, 1)
     pay_gold(daily_harvest_gold, daily_cost_gold)
     pay_energy(tokenId, daily_harvest_energy, daily_cost_energy)
 
     return()
 end
 
-func pay_ressources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(erc1155_address : felt, tokenId : Uint256, id : felt ):
+func pay_ressources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(erc1155_address : felt, tokenId : Uint256, id : felt, mul : felt):
     alloc_locals
 
     if id == 0:
@@ -233,9 +248,11 @@ func pay_ressources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     end
 
     let (caller) = get_caller_address()
-    let (local harvest)  = daily_ressources_harvest_.read(tokenId, id)
-    let (local cost)  = daily_ressources_cost_.read(tokenId, id)
+    let (old_harvest)  = daily_ressources_harvest_.read(tokenId, id)
+    let (old_cost)  = daily_ressources_cost_.read(tokenId, id)
 
+    let harvest = old_harvest * mul
+    let cost = old_cost * mul
     let (is_lower) = is_le(harvest, cost)
     let (uint_id) = felt_to_uint256(id)
     if is_lower == 1 :
@@ -246,18 +263,18 @@ func pay_ressources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         if enough_blance == 1 :
             let (uint_due) = felt_to_uint256(due)
             IERC1155.burn(contract_address=erc1155_address, _from=caller, id=uint_id, amount=uint_due)
-            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1)
+            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1, mul=mul)
         else :
             let (uint_balance) = felt_to_uint256(balance)
             IERC1155.burn(contract_address=erc1155_address, _from=caller, id=uint_id, amount=uint_balance)
-            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1) 
+            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1, mul=mul) 
         end
     end
 
     let due = harvest - cost
     let (uint_due) = felt_to_uint256(due)
     IERC1155.mint(contract_address=erc1155_address, to=caller, id=uint_id, amount=uint_due)
-    return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1)
+    return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1, mul=mul)
 end
 
 ### Pensé à si le joueur n'a pas assez d'argent pour payer
@@ -297,4 +314,84 @@ func pay_energy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     let due = daily_harvest_energy - daily_cost_energy
     daily_energy_harvest_.write(tokenId, due)
     return()
+end
+
+###########
+# View #
+###########
+
+@view
+func fetch_daily_ressources_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (daily_ressources_len : felt, daily_ressources : felt*):
+    alloc_locals
+
+    let (daily_ressources : felt*) = alloc()
+    fill_ressource_harvest_array(tokenId, 18, daily_ressources, 1)
+
+    return (daily_ressources_len=18, daily_ressources=daily_ressources)
+end
+
+@view
+func fetch_daily_ressources_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (daily_ressources_len : felt, daily_ressources : felt*):
+    alloc_locals
+
+    let (daily_ressources : felt*) = alloc()
+    fill_ressource_cost_array(tokenId, 18, daily_ressources, 1)
+
+    return (daily_ressources_len=18, daily_ressources=daily_ressources)
+end
+
+@view
+func fill_ressource_harvest_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256, daily_ressources_len : felt, daily_ressources : felt*, id : felt):
+
+    if id == 10:
+        return ()
+    end
+
+    let (ressource) = daily_ressources_harvest_.read(tokenId, id)
+
+    assert daily_ressources[0] = id
+    assert daily_ressources[1] = ressource
+
+    return fill_ressource_harvest_array(tokenId, daily_ressources_len, daily_ressources + 2, id + 1)
+end
+
+@view
+func fill_ressource_cost_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256, daily_ressources_len : felt, daily_ressources : felt*, id : felt):
+
+    if id == 10:
+        return ()
+    end
+
+    let (ressource) = daily_ressources_cost_.read(tokenId, id)
+
+    assert daily_ressources[0] = id
+    assert daily_ressources[1] = ressource
+
+    return fill_ressource_cost_array(tokenId, daily_ressources_len, daily_ressources + 2, id + 1)
+end
+
+
+@view
+func daily_gold_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (gold : felt):
+    let (gold) = daily_gold_harvest_.read(tokenId)
+    return (gold)
+end
+
+@view
+func daily_gold_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (gold : felt):
+    let (gold) = daily_gold_cost_.read(tokenId)
+    return (gold)
+end
+
+@view
+func daily_energy_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (energy : felt):
+    let (energy) = daily_energy_harvest_.read(tokenId)
+    return (energy)
+end
+
+
+@view
+func daily_energy_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (energy : felt):
+    let (energy) = daily_energy_cost_.read(tokenId)
+    return (energy)
 end
