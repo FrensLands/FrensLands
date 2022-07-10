@@ -107,24 +107,9 @@ struct BuildingData:
     member pop : felt
     member time_created : felt
     member last_repair : felt
+    member pos : felt
 end
 
-# struct Gabelous:
-#     member gabelous_type : felt
-#     member daily_cost : Cost
+# namespace EventsIds:
+#     const Event1 = 1
 # end
-
-# namespace GabelousTypes:
-#     const Owner = 1
-#     const Mayor = 2
-# end
-
-namespace EventsIds:
-    const Event1 = 1
-end
-
-struct NaturalResources:
-    member type : felt  # resource_id
-    member level : felt  # taille de l'objet
-    member quantity : felt
-end

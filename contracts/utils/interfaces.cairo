@@ -46,6 +46,12 @@ namespace IM01Worlds:
         bool : felt
     ):
     end
+
+    func get_map_block(tokenId : Uint256, index : felt) -> (data : felt):
+    end
+
+    func update_map_block(tokenId : Uint256, index : felt, data : felt) -> ():
+    end
 end
 
 @contract_interface
@@ -85,7 +91,15 @@ namespace IM02Resources:
     func get_population(tokenId : Uint256) -> (pop_len : felt, pop : felt*):
     end
 
-    func _receive_resources_erc20(caller : felt, amount : Uint256):
+    func _receive_resources_erc20(amount : Uint256, account : felt, erc_20_addr : felt):
+    end
+
+    func _get_tokens(tokenId : Uint256, caller : felt, amount : Uint256, erc20_addr : felt):
+    end
+
+    func _get_resources(
+        tokenId : Uint256, caller : felt, res_len : felt, res : felt*, erc1155_addr : felt
+    ):
     end
 end
 
@@ -113,5 +127,11 @@ namespace IM03Buldings:
         level_len : felt,
         level : felt*,
     ):
+    end
+
+    func _destroy_building(tokenId : Uint256, building_unique_id : felt) -> ():
+    end
+
+    func _update_level(tokenId : Uint256, building_unique_id : felt, level : felt) -> ():
     end
 end

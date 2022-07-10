@@ -7,7 +7,7 @@ from starkware.starknet.common.syscalls import (
     get_contract_address,
     get_block_number,
 )
-from starkware.cairo.common.uint256 import Uint256, uint256_sub
+from starkware.cairo.common.uint256 import Uint256, uint256_add
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.math_cmp import is_not_zero, is_le
 from starkware.cairo.common.math import assert_not_zero, assert_le, split_felt, assert_lt_felt
@@ -27,6 +27,10 @@ from contracts.utils.bArray import bArray
 
 @storage_var
 func can_initialize_() -> (address : felt):
+end
+
+@storage_var
+func supply_index() -> (last_id : Uint256):
 end
 
 # state = 0 = game paused, state = 1 = ongoing game
@@ -61,9 +65,10 @@ end
 ###############
 
 @constructor
-func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
-    let (caller) = get_caller_address()
-    can_initialize_.write(caller)
+func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(admin : felt):
+    can_initialize_.write(admin)
+
+    supply_index.write(Uint256(0, 0))
 
     return ()
 end
@@ -87,9 +92,9 @@ end
 func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256, data_len : felt, data : felt*, index : felt
 ):
-    # let (caller) = get_caller_address()
-    # let (can_initialize) = can_initialize_.read()
-    # assert caller = can_initialize
+    let (caller) = get_caller_address()
+    let (can_initialize) = can_initialize_.read()
+    assert caller = can_initialize
 
     if data_len == 0:
         return ()
@@ -102,7 +107,8 @@ end
 
 # @notice Transfer available map to player
 @external
-func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(tokenId : Uint256):
+func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+    alloc_locals
     let (caller) = get_caller_address()
     let (controller) = Module.get_controller()
 
@@ -119,6 +125,10 @@ func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     with_attr error_message("M01_Worlds: caller has already minted a map."):
         assert balance = Uint256(0, 0)
     end
+
+    let (local last_tokenId : Uint256) = supply_index.read()
+    let (tokenId, _) = uint256_add(last_tokenId, Uint256(1, 0))
+    supply_index.write(tokenId)
 
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     with_attr error_message("M01_Worlds: this map is not available."):
@@ -162,6 +172,8 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
 
     IM02Resources.update_population(m02_addr, tokenId, 3, 1)
 
+    IM02Resources._receive_resources_erc20(m02_addr, tokenId, caller, gold_erc20_addr)
+
     game_state_.write(tokenId, 1)
 
     # Emit NewGame event
@@ -199,27 +211,12 @@ func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     return ()
 end
 
-# TODO: save map
-func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256
-) -> ():
-    # Checks ?
-    # Needs to setApproval before saving_map
-    # Call _pause_game(tokenId)
-    # Fetch data needed for MapsERC721 new mint
-    # Mint new Map with new updated_data ?
-    return ()
-end
-
-# Function to reinitialize map ?
-func reinitialize_world{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256
-) -> ():
-    # Regen maps resources by blocks
-    # Burn resources, and tokens left and restart from scratch
-    # Need setApprovalForAll before
-    return ()
-end
+# TODO: save map to ERC721
+# func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#     tokenId : Uint256
+# ) -> ():
+#     return ()
+# end
 
 # @notice checks if player can build a building
 # @param building_size : 1, 2 or 4 blocks
@@ -317,6 +314,15 @@ func _check_can_build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
     return (1)
 end
 
+@external
+func update_map_block{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, index : felt, data : felt
+) -> ():
+    _only_approved()
+    map_info_.write(tokenId, index, data)
+    return ()
+end
+
 ##################
 # VIEW FUNCTIONS #
 ##################
@@ -329,6 +335,14 @@ func get_game_status{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_che
 ) -> (state : felt):
     let (state) = game_state_.read(tokenId)
     return (state)
+end
+
+@view
+func get_map_block{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, index : felt
+) -> (data : felt):
+    let (data) = map_info_.read(tokenId, index)
+    return (data)
 end
 
 # @notice get map array will the blocks data
