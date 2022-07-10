@@ -17,13 +17,17 @@ from contracts.utils.game_structs import (
     ExternalContractsIds,
     BuildingFixedData,
     MapsPrice,
+    MultipleResources
 )
 from contracts.utils.game_constants import GOLD_START
 
 from contracts.utils.tokens_interfaces import IERC721Maps, IERC20FrensCoin, IERC1155
-from contracts.utils.interfaces import IModuleController
+from contracts.utils.interfaces import IModuleController, IM03Buldings, IM01Worlds
 from contracts.library.library_module import Module
 from openzeppelin.access.ownable import Ownable
+from contracts.utils.bArray import bArray
+from contracts.library.library_data import Data
+
 
 ###########
 # STORAGE #
@@ -60,6 +64,10 @@ end
 func population_(token_id : Uint256, allocated : felt) -> (number : felt):
 end
 
+@storage_var
+func energy_level(token_id : Uint256) -> (number : felt):
+end
+
 # Time is calculated using blocks. Stores the first blocks the world was generated
 @storage_var
 func start_block_(token_id : Uint256) -> (block : felt):
@@ -68,6 +76,11 @@ end
 # Stores the last block
 @storage_var
 func block_number_(token_id : Uint256) -> (block : felt):
+end
+
+# Stores the last block
+@storage_var
+func initialized_(token_id : Uint256) -> (value : felt):
 end
 
 ##########
@@ -116,6 +129,7 @@ func fill_ressources_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 ):
     # Only M03 can update ressources_harvest
     _only_approved()
+
     # Check operation allowed
     assert_le(operation, 1)
     fill_ressources_storage_harvest(
@@ -134,6 +148,7 @@ func fill_ressources_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
 ):
     # Only M03 can update ressources costs
     _only_approved()
+
     # Check operation allowed
     assert_le(operation, 1)
     fill_ressources_storage_cost(
@@ -153,6 +168,7 @@ func fill_gold_energy_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, 
     alloc_locals
     # Only M03 can update gold & energy harvest
     _only_approved()
+
     let (local old_gold) = daily_gold_harvest_.read(tokenId)
     let (local old_energy) = daily_energy_harvest_.read(tokenId)
 
@@ -412,6 +428,7 @@ func update_population{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     alloc_locals
     # Only M03 can update population
     _only_approved()
+
     let (available_pop) = population_.read(tokenId, 0)
     let (allocated_pop) = population_.read(tokenId, 1)
 
@@ -464,11 +481,13 @@ end
 
 @external
 func _receive_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256
+    tokenId : Uint256,
+    account : felt
 ):
     let (caller) = get_caller_address()
 
-    # TODO : Add a check to ensure
+    let (_initialized) = initialized_.read(tokenId)
+    assert _initialized = 0
 
     let (controller) = Module.get_controller()
     let (gold_erc20_addr) = IModuleController.get_external_contract_address(
@@ -476,11 +495,12 @@ func _receive_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, 
     )
     # Mint some Gold (minus the price of the map)
     let (amount : Uint256) = uint256_sub(Uint256(GOLD_START, 0), Uint256(MapsPrice.Map_1, 0))
-    IERC20FrensCoin.mint(gold_erc20_addr, caller, amount)
+    IERC20FrensCoin.mint(gold_erc20_addr, account, amount)
+
+    initialized_.write(tokenId, 1)
+
     return ()
 end
-
-# IERC20FrensCoin.mint(gold_erc20_addr, caller, amount)
 
 ##################
 # VIEW FUNCTIONS #
@@ -517,34 +537,89 @@ func get_population{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_chec
     return (2, pop)
 end
 
-# View : get daily costs & daily harvest res, gold, energy
-# @notice get daily costs
-# @returns array of resources costs, qty gold qty energy
-# @view
-# func get_daily_costs{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> (costs_len : felt, costs: felt*, gold: felt, energy: felt):
-#     alloc_locals
-#     let (local costs : felt*) = alloc()
-#     let (pop[0]) = population_.read(tokenId, 0)
-#     let (pop[1]) = population_.read(tokenId, 1)
+@view
+func get_energy_level{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> (energy : felt):
+    let (energy) = energy_level.read(tokenId)
+    return (energy)
+end
 
-# local gold =
-#     return (2, pop)
-# end
+@view
+func fetch_daily_ressources_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (daily_ressources_len : felt, daily_ressources : felt*):
+    alloc_locals
 
-# # @notice get daily harvests
-# # @returns array of resources costs, qty gold qty energy
-# @view
-# func get_daily_harvest{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> (costs_len : felt, costs: felt*, gold: felt, energy: felt):
-#     alloc_locals
-#     let (local pop : felt*) = alloc()
-#     let (pop[0]) = population_.read(tokenId, 0)
-#     let (pop[1]) = population_.read(tokenId, 1)
-#     return (2, pop)
-# end
+    let (daily_ressources : felt*) = alloc()
+    fill_ressource_harvest_array(tokenId, 18, daily_ressources, 1)
+
+    return (daily_ressources_len=18, daily_ressources=daily_ressources)
+end
+
+@view
+func fetch_daily_ressources_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (daily_ressources_len : felt, daily_ressources : felt*):
+    alloc_locals
+
+    let (daily_ressources : felt*) = alloc()
+    fill_ressource_cost_array(tokenId, 18, daily_ressources, 1)
+
+    return (daily_ressources_len=18, daily_ressources=daily_ressources)
+end
+
+@view
+func fill_ressource_harvest_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256, daily_ressources_len : felt, daily_ressources : felt*, id : felt):
+
+    if id == 10:
+        return ()
+    end
+
+    let (ressource) = daily_ressources_harvest_.read(tokenId, id)
+
+    assert daily_ressources[0] = id
+    assert daily_ressources[1] = ressource
+
+    return fill_ressource_harvest_array(tokenId, daily_ressources_len, daily_ressources + 2, id + 1)
+end
+
+@view
+func fill_ressource_cost_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256, daily_ressources_len : felt, daily_ressources : felt*, id : felt):
+
+    if id == 10:
+        return ()
+    end
+
+    let (ressource) = daily_ressources_cost_.read(tokenId, id)
+
+    assert daily_ressources[0] = id
+    assert daily_ressources[1] = ressource
+
+    return fill_ressource_cost_array(tokenId, daily_ressources_len, daily_ressources + 2, id + 1)
+end
+
+
+@view
+func daily_gold_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (gold : felt):
+    let (gold) = daily_gold_harvest_.read(tokenId)
+    return (gold)
+end
+
+@view
+func daily_gold_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (gold : felt):
+    let (gold) = daily_gold_cost_.read(tokenId)
+    return (gold)
+end
+
+@view
+func daily_energy_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (energy : felt):
+    let (energy) = daily_energy_harvest_.read(tokenId)
+    return (energy)
+end
+
+
+@view
+func daily_energy_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(tokenId : Uint256) -> (energy : felt):
+    let (energy) = daily_energy_cost_.read(tokenId)
+    return (energy)
+end
 
 ######################
 # INTERNAL FUNCTIONS #
@@ -575,4 +650,105 @@ func _is_owner_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         return (1)
     end
     return (0)
+end
+
+func _get_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, caller : felt, res_len : felt, res : felt*,
+    # DEBUG
+    erc1155_addr : felt
+):
+    _only_approved()
+
+    if res_len == 0:
+        return ()
+    end
+    let (controller) = Module.get_controller()
+    let (erc1155_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.ERC1155
+    )
+    # Mint Resources
+    let amount_felt = res[1]
+    let id_felt = res[0]
+    # %{ print ('amount_felt : ', ids.amount_felt) %}
+    # %{ print ('id_felt : ', ids.id_felt) %}
+    let (amount) = felt_to_uint256(amount_felt)
+    let (res_id) = felt_to_uint256(id_felt)
+    IERC1155.mint(contract_address=erc1155_addr, to=caller, id=res_id, amount=amount)
+
+    return _get_resources(tokenId, caller, res_len - 2, res + 2, erc1155_addr)
+end
+
+@external
+func farm{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, building_unique_id : felt
+):
+    alloc_locals
+
+    # Check caller is owner of tokenId
+    let (caller) = get_caller_address()
+    let (local bool) = _is_owner_token(caller, tokenId)
+    with_attr error_message("M02_Resources: caller is not owner of this tokenId"):
+        assert bool = 1
+    end
+
+    let (controller) = Module.get_controller()
+
+    let (data_len : felt, data: felt*) = IM03Buldings.get_building_data(m03_addr, tokenId, building_unique_id)
+    let pos_start = data[5]
+    let level = data[1]
+    let res_type = data[0]
+
+    let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Worlds)
+
+    # Get resources data from M03
+    # change level from 1 to level value (if Fixed data are all filled)
+    let (building_data : BuildingFixedData) = IM03Buldings.view_fixed_data(m03_addr, res_type, 1)
+    let (gains_len : felt, gains : felt*) = Data._get_costs_from_chain(
+        building_data.daily_harvest.nb_resources, building_data.daily_harvest.resources_qty
+    )
+
+    _get_resources(tokenId, caller, gains_len, gains, erc1155_addr)
+
+    # Update level of resources from M03
+    IM03Buldings._update_level(m03_addr, tokenId, building_unique_id, level)
+
+    # Handle only one blocks resources for now
+    let (index_array : felt*) = alloc()
+    assert index_array[0] = pos_start 
+    # assert index_array[1] = pos_start + 1
+    # assert index_array[2] = pos_start + 40
+    # assert index_array[3] = pos_start + 41
+
+    if level  == 3:
+        # _destroy_resources_map(tokenId, 4, index_array, building_unique_id, m01_addr)
+        _destroy_resources_map(tokenId, 1, index_array, building_unique_id, m01_addr)
+        return ()
+    end
+
+    return ()
+end
+
+func _destroy_resources_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, index_len : felt, index: felt*, building_unique_id: felt
+):
+    alloc_locals
+        # Get block info
+    let (block) = IM01Worlds.get_map_block(m01_addr, tokenId, index[0])
+    let (local decomp_array : felt*) = alloc()
+    let (local bArr) = bArray(16)
+    Data._decompose(bArr, 16, block, decomp_array, 0, 0, 0)
+
+    let current = decomp_array[7] * 100 + decomp_array[8] * 100 + decomp_array[9]
+
+    if current != building_unique_id :
+        return ()
+    end 
+    
+    # Recompose with resources destroyed
+    let (comp) = Data._compose_chain_destroyed(16, decomp_array)
+
+    # Update map Array
+    IM01Worlds.update_map_block(m01_addr, tokenId, index[0], comp)
+
+    return _destroy_resources_map(tokenId, index_len - 1, index + 1, building_unique_id, m01_addr)
 end
