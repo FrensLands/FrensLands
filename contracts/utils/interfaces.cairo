@@ -91,15 +91,13 @@ namespace IM02Resources:
     func get_population(tokenId : Uint256) -> (pop_len : felt, pop : felt*):
     end
 
-    func _receive_resources_erc20(amount : Uint256, account : felt, erc_20_addr : felt):
+    func _receive_resources_erc20(amount : Uint256, account : felt):
     end
 
-    func _get_tokens(tokenId : Uint256, caller : felt, amount : Uint256, erc20_addr : felt):
+    func _get_tokens(tokenId : Uint256, caller : felt, amount : Uint256):
     end
 
-    func _get_resources(
-        tokenId : Uint256, caller : felt, res_len : felt, res : felt*, erc1155_addr : felt
-    ):
+    func _get_resources(tokenId : Uint256, caller : felt, res_len : felt, res : felt*):
     end
 end
 
