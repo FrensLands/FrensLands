@@ -63,6 +63,28 @@ func _building_data(token_id : Uint256, building_id : felt, storage_index : felt
 end
 # storage_index = BuildingData.type_id, BuildingData.level, ...
 
+@storage_var
+func m01_address() -> (address : felt):
+end
+
+@storage_var
+func m02_address() -> (address : felt):
+end
+
+# Address of ERC1155Contract
+@storage_var
+func erc1155_address_() -> (address : felt):
+end
+
+# Address of Gold ERC20 contract
+@storage_var
+func gold_address_() -> (address : felt):
+end
+
+@storage_var
+func maps_address_() -> (address : felt):
+end
+
 ##########
 # EVENTS #
 ##########
@@ -111,9 +133,29 @@ end
 # Initialize Controller Address
 @external
 func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    address_of_controller : felt
+    m01_addr: felt,
+    m02_addr: felt,
+    erc1155_addr: felt,
+    maps_addr: felt,
+    gold_addr : felt
 ):
-    Module.initialize_controller(address_of_controller)
+    # Module.initialize_controller(address_of_controller)
+    let (caller) = get_caller_address()
+    let (admin_addr) = can_initialize_.read()
+    assert caller = admin_addr 
+
+    # Module.initialize_controller(address_of_controller)
+    assert_not_zero(m02_addr)
+    assert_not_zero(m01_addr)
+    assert_not_zero(erc1155_addr)
+    assert_not_zero(gold_addr)
+    assert_not_zero(maps_addr)
+
+    m02_address.write(m02_addr)
+    m01_address.write(m01_addr)
+    erc1155_address_.write(erc1155_addr)
+    gold_address_.write(gold_addr)
+    maps_address_.write(maps_addr)
     return ()
 end
 
@@ -207,15 +249,26 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     level : felt,
     pos_start : felt,
     allocated_population : felt,
+    # DEBUG
+    m01_addr: felt,
+    m02_addr: felt,
+    erc1155_addr: felt,
+    frenscoins_addr: felt,
 ):
     alloc_locals
 
     # Check caller is owner of tokenId
     let (caller) = get_caller_address()
+
     let (local bool) = _is_owner_token(caller, tokenId)
     with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
         assert bool = 1
     end
+
+    let (m01_addr) = m01_address.read()
+    let (m02_addr) = m02_address.read()
+    let (erc1155_addr) = erc1155_address_.read()
+    let (frenscoins_addr) = gold_address_.read()
 
     with_attr error_message("M01_Worlds: you cannot build another cabin"):
         assert_not_equal(building_type_id, 1)
@@ -227,6 +280,10 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
 
     with_attr error_message("M01_Worlds: you cannot plant add rocks on the map."):
         assert_not_equal(building_type_id, 3)
+    end
+
+    with_attr error_message("M01_Worlds: you cannot add mines for now."):
+        assert_not_equal(building_type_id, 2)
     end
 
     # Check owner can build this level
@@ -245,23 +302,26 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     local upgrade_cost_gold = upgrade_costs_struct.gold_qty
     local upgrade_cost_energy = upgrade_costs_struct.energy_qty
 
-    # Check enough FrensCoins
-    let (controller) = Module.get_controller()
-    let (frenscoins_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Gold
-    )
+    # %{ print ('upgrade_cost_gold : ', ids.upgrade_cost_gold) %}
+    # %{ print ('upgrade_cost_energy : ', ids.upgrade_cost_energy) %}
+
+    # let (controller) = Module.get_controller()
+    # let (frenscoins_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Gold
+    # )
     let (local balance_coins) = IERC20FrensCoin.balanceOf(frenscoins_addr, caller)
     let (felt_balance) = uint256_to_felt(balance_coins)
+    # %{ print ('felt_balance : ', ids.felt_balance) %}
     let (enough_balance) = is_le(upgrade_cost_gold, felt_balance)
     with_attr error_message("M03_Buildings: caller has not enough FrensCoins."):
         assert enough_balance = 1
     end
 
-    # Check enough resources
-    let (erc1155_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Resources
-    )
+    # let (erc1155_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Resources
+    # )
     let (has_resources) = _has_resources(caller, erc1155_addr, costs_len, costs)
+    # %{ print ('has_resources : ', ids.has_resources) %}
     with_attr error_message("M03_Buildings: caller has not enough resources."):
         assert has_resources = 1
     end
@@ -274,23 +334,34 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     # Increment building ID
     let (last_index) = building_index.read(tokenId)
     let (current_block) = get_block_number()
+    # %{ print ('last_index : ', ids.last_index) %}
+    # %{ print ('current_block : ', ids.current_block) %}
 
     # Check owner can build on this position on the map & check matType
-    let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Worlds)
-    IM01Worlds._check_can_build(m01_addr, tokenId, level, pos_start)
+    # DEBUG - TO UNCOMMENT
+    # let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Worlds)
+    # IM01Worlds._check_can_build(m01_addr, tokenId, level, pos_start)
+    let (block) = IM01Worlds.get_map_block(m01_addr, tokenId, pos_start)
+    # %{ print ('block map_array : ', ids.block) %}
+    let (local decomp_array : felt*) = alloc()
+    let (local bArr) = bArray(16)
+    Data._decompose(bArr, 16, block, decomp_array, 0, 0, 0)
 
-    # allocate population
-    # TODO : cas où pas assez de population
-    let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    let check_build = decomp_array[7] * 100 + decomp_array[8] * 10 + decomp_array[9]
+    # %{ print ('check_build : ', ids.check_build) %}
+    with_attr error_message("M03_Buildings: there is already a building on this block."):
+        assert check_build = 0
+    end
+
+    # let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
     IM02Resources.update_population(m02_addr, tokenId, 1, allocated_population)
 
     # Build data for building
     _building_data.write(tokenId, last_index + 1, BuildingData.type_id, building_type_id)
-    _building_data.write(tokenId, last_index + 1, BuildingData.level, level)
     _building_data.write(tokenId, last_index + 1, BuildingData.pop, allocated_population)
     _building_data.write(tokenId, last_index + 1, BuildingData.time_created, current_block)
     _building_data.write(tokenId, last_index + 1, BuildingData.last_repair, current_block)
-    _building_data.write(tokenId, last_index + 1, BuildingData.pos, pos_start)
+    # _building_data.write(tokenId, last_index + 1, BuildingData.pos, pos_start)
 
     building_index.write(tokenId, last_index + 1)
 
@@ -330,31 +401,10 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     # Update total population
     IM02Resources.update_population(m02_addr, tokenId, 3, level * 5)
 
-    # TODO : Write on the map the new data through M01
-    let (block) = IM01Worlds.get_map_block(m01_addr, tokenId, pos_start)
-    # Decompose array
-    let (local decomp_array : felt*) = alloc()
-    let (local bArr) = bArray(16)
-    Data._decompose(bArr, 16, block, decomp_array, 0, 0, 0)
     let (local comp) = Data._compose_chain_build(
         16, decomp_array, building_type_id, last_index + 1, allocated_population, level
     )
     IM01Worlds.update_map_block(m01_addr, tokenId, pos_start, comp)
-
-    # let (is_level) = is_nn_le(1, level)
-    # if is_level == 1:
-    #     let (local block_2) = IM01Worlds.get_map_block(m01_addr, tokenId, pos_start + 1)
-    #     let (local decomp_array_2 : felt*) = alloc()
-    #     let (local bArr) = bArray(16)
-    #     Data._decompose(bArr, 16, block_2, decomp_array_2, 0, 0, 0)
-    #     let (local comp) = Data._compose_chain_build(
-    #         16, decomp_array_2, building_type_id, last_index + 1, allocated_population, level
-    #     )
-    #     IM01Worlds.update_map_block(m01_addr, tokenId, pos_start + 1, comp)
-    #     tempvar syscall_ptr = syscall_ptr
-    #     tempvar pedersen_ptr = pedersen_ptr
-    #     tempvar range_check_ptr = range_check_ptr
-    # end
 
     return ()
 end
@@ -429,36 +479,46 @@ func destroy{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     return ()
 end
 
-@external
-func repair{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    token_id : Uint256, building_id : felt, level : felt
-):
-    alloc_locals
+# @external
+# func repair{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#     token_id : Uint256, building_id : felt, level : felt
+# ):
+#     alloc_locals
 
-    let (caller) = get_caller_address()
+#     let (caller) = get_caller_address()
 
-    # TODO : Check caller is owner of token_id
+#     # TODO : Check caller is owner of token_id
 
-    # TODO : Check user has resources
+#     # TODO : Check user has resources
 
-    # TODO : Decrement resources
+#     # TODO : Decrement resources
 
-    let (current_block) = get_block_number()
-    _building_data.write(token_id, building_id, BuildingData.last_repair, current_block)
+#     let (current_block) = get_block_number()
+#     _building_data.write(token_id, building_id, BuildingData.last_repair, current_block)
 
-    return ()
-end
+#     return ()
+# end
 
 # Move a building on the map
-@external
-func move{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    token_id : Uint256, building_id : felt, level : felt
-):
-    # Check caller is owner of token_id
-    # Fetch resources needed to build
-    # Check owner can build (has enough resources)
-    return ()
-end
+# @external
+# func move{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#     token_id : Uint256, building_id : felt, level : felt
+# ):
+#     # Check caller is owner of token_id
+#     # Fetch resources needed to build
+#     # Check owner can build (has enough resources)
+#     return ()
+# end
+
+# TODO : Function callable only by Arbiter to add additional levels and data
+# @external
+# func add_additional_fixed_data{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#     token_id : Uint256, building_id : felt, level : felt
+# ):
+#     _only_approved()
+
+# return ()
+# end
 
 # Initialize resources at first
 @external
@@ -494,6 +554,8 @@ func _initialize_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*
         return ()
     end
 
+    # %{ print ('level_len : ', ids.level_len) %}
+
     # Increment building ID
     let (last_index) = building_index.read(tokenId)
     let (current_block) = get_block_number()
@@ -511,6 +573,47 @@ func _initialize_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*
     return _initialize_resources_iter(
         tokenId, building_type_id + 1, level_len - 1, level + 1, pos_len - 1, pos + 1
     )
+end
+
+@external
+func initialize_resources_new{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256, building_type_id_len : felt, building_type_id : felt*
+):
+    let (caller) = get_caller_address()
+    let (can_initialize) = can_initialize_.read()
+    assert caller = can_initialize
+
+    _initialize_resources_iter_new(tokenId, building_type_id_len, building_type_id)
+
+    building_count.write(tokenId, building_type_id_len)
+
+    return ()
+end
+
+func _initialize_resources_iter_new{
+    pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr
+}(tokenId : Uint256, building_type_id_len : felt, building_type_id : felt*):
+    if building_type_id_len == 0:
+        return ()
+    end
+
+    # %{ print ('building_type_id_len : ', ids.building_type_id_len) %}
+
+    # Increment building ID
+    let (last_index) = building_index.read(tokenId)
+    let (current_block) = get_block_number()
+
+    # %{ print ('last_index : ', ids.last_index) %}
+
+    _building_data.write(tokenId, last_index + 1, BuildingData.type_id, building_type_id[0])
+    # _building_data.write(tokenId, last_index + 1, BuildingData.level, level[0])
+    _building_data.write(tokenId, last_index + 1, BuildingData.time_created, current_block)
+    # _building_data.write(tokenId, last_index + 1, BuildingData.pos, current_block)
+    # _building_data.write(tokenId, last_index + 1, BuildingData.pos, pos[0])
+
+    building_index.write(tokenId, last_index + 1)
+
+    return _initialize_resources_iter_new(tokenId, building_type_id_len - 1, building_type_id + 1)
 end
 
 ##################
@@ -589,6 +692,11 @@ func _get_all_building_ids_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*
     )
     let (exists) = is_not_zero(new_b)
 
+    # %{ print ('max_count : ', ids.max_count) %}
+    # %{ print ('counter : ', ids.counter) %}
+    # %{ print ('Building exists : ', ids.exists) %}
+    # %{ print ('Building type_id : ', ids.new_b) %}
+
     if exists == 1:
         assert data[0] = counter
         assert data[1] = new_b
@@ -622,6 +730,7 @@ func _has_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_chec
     player : felt, erc1155_addr : felt, costs_len : felt, costs : felt*
 ) -> (bool : felt):
     alloc_locals
+    # %{ print ('costs_len : ', ids.costs_len) %}
     if costs_len == 0:
         return (TRUE)
     end
@@ -629,8 +738,10 @@ func _has_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_chec
     let (uint_id) = felt_to_uint256(costs[0])
     let (balance : Uint256) = IERC1155.balanceOf(erc1155_addr, player, uint_id)
     let (felt_balance) = uint256_to_felt(balance)
+    # %{ print ('felt_balance : ', ids.felt_balance) %}
 
     let (local check) = is_le(costs[1], felt_balance)
+    # %{ print ('check : ', ids.check) %}
     if check == 0:
         return (FALSE)
     end
@@ -723,7 +834,7 @@ end
 func _destroy_building{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     tokenId : Uint256, building_unique_id : felt
 ) -> ():
-    _only_approved(
+    # TODO : Ajouter le only_approved + droit écritures M02 vers M03
     _building_data.write(tokenId, building_unique_id, BuildingData.type_id, 0)
     _building_data.write(tokenId, building_unique_id, BuildingData.level, 0)
     _building_data.write(tokenId, building_unique_id, BuildingData.pop, 0)
@@ -738,7 +849,6 @@ end
 func _update_level{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     tokenId : Uint256, building_unique_id : felt, level : felt
 ) -> ():
-    _only_approved()
     if level == 3:
         return ()
     end

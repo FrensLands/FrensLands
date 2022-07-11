@@ -9,8 +9,8 @@ from starkware.starknet.common.syscalls import (
 )
 from starkware.cairo.common.uint256 import Uint256, uint256_sub
 from starkware.cairo.common.alloc import alloc
-from starkware.cairo.common.math import assert_not_zero, split_felt, assert_lt_felt, assert_le
-from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le, is_le
+from starkware.cairo.common.math import assert_not_zero, split_felt, assert_lt_felt, assert_le, unsigned_div_rem
+from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le, is_le, is_in_range
 
 from contracts.utils.game_structs import (
     ModuleIds,
@@ -83,6 +83,36 @@ end
 func initialized_(token_id : Uint256) -> (value : felt):
 end
 
+
+# Interfaces 
+# Address of M03 Contract
+@storage_var
+func m03_address() -> (address : felt):
+end
+
+@storage_var
+func m01_address() -> (address : felt):
+end
+
+# Address of ERC1155Contract
+@storage_var
+func erc1155_address_() -> (address : felt):
+end
+
+# Address of Gold ERC20 contract
+@storage_var
+func gold_address_() -> (address : felt):
+end
+
+@storage_var
+func admin_() -> (value : felt):
+end
+
+@storage_var
+func maps_address_() -> (address : felt):
+end
+
+
 ##########
 # EVENTS #
 ##########
@@ -109,11 +139,37 @@ end
 # CONSTRUCTOR #
 ###############
 
+@constructor
+func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(admin_addr : felt):
+    admin_.write(admin_addr)
+    return ()
+end
+
 @external
 func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    address_of_controller : felt
+    # address_of_controller : felt
+    address_m3 : felt, 
+    address_m1 : felt,
+    erc1155_address : felt, 
+    gold_erc20_address : felt,
+    maps_addr: felt
 ):
-    Module.initialize_controller(address_of_controller)
+    let (caller) = get_caller_address()
+    let (admin_addr) = admin_.read()
+    assert caller = admin_addr 
+
+    # Module.initialize_controller(address_of_controller)
+    assert_not_zero(address_m3)
+    assert_not_zero(address_m1)
+    assert_not_zero(erc1155_address)
+    assert_not_zero(gold_erc20_address)
+    assert_not_zero(maps_addr)
+
+    m03_address.write(address_m3)
+    m01_address.write(address_m1)
+    erc1155_address_.write(erc1155_address)
+    gold_address_.write(gold_erc20_address)
+    maps_address_.write(maps_addr)
     return ()
 end
 
@@ -128,7 +184,10 @@ func fill_ressources_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     tokenId : Uint256, daily_harvest_len : felt, daily_harvest : felt*, operation : felt
 ):
     # Only M03 can update ressources_harvest
-    _only_approved()
+    # _only_approved()
+    let (m03_addr) = m03_address.read()
+    let (caller) = get_caller_address()
+    assert caller = m03_addr
 
     # Check operation allowed
     assert_le(operation, 1)
@@ -147,7 +206,10 @@ func fill_ressources_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     tokenId : Uint256, daily_cost_len : felt, daily_cost : felt*, operation : felt
 ):
     # Only M03 can update ressources costs
-    _only_approved()
+    # _only_approved()
+    let (m03_addr) = m03_address.read()
+    let (caller) = get_caller_address()
+    assert caller = m03_addr
 
     # Check operation allowed
     assert_le(operation, 1)
@@ -167,7 +229,10 @@ func fill_gold_energy_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, 
 ):
     alloc_locals
     # Only M03 can update gold & energy harvest
-    _only_approved()
+    # _only_approved()
+    let (m03_addr) = m03_address.read()
+    let (caller) = get_caller_address()
+    assert caller = m03_addr
 
     let (local old_gold) = daily_gold_harvest_.read(tokenId)
     let (local old_energy) = daily_energy_harvest_.read(tokenId)
@@ -194,7 +259,11 @@ func fill_gold_energy_cost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     tokenId : Uint256, daily_gold : felt, daily_energy : felt, operation : felt
 ):
     # Only M03 can update gold & energy cost
-    _only_approved()
+    # _only_approved()
+    let (m03_addr) = m03_address.read()
+    let (caller) = get_caller_address()
+    assert caller = m03_addr
+
     let (old_gold) = daily_gold_cost_.read(tokenId)
     let (old_energy) = daily_energy_cost_.read(tokenId)
 
@@ -311,20 +380,35 @@ func claim_resources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         assert_le(old_block_number, block_number)
     end
 
-    # TODO : add multiplier of 2 blocks
-    # If you wait 10 blocks you can pay and claim 10 blocks
+    block_number_.write(tokenId, block_number)
 
-    let (controller) = Module.get_controller()
-    let (erc1155_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Resources
-    )
+    # let (controller) = Module.get_controller()
+    let (address_m3) = m03_address.read()
+    let (erc1155_address) = erc1155_address_.read()
     let (local daily_harvest_gold) = daily_gold_harvest_.read(tokenId)
     let (daily_cost_gold) = daily_gold_cost_.read(tokenId)
     let (daily_harvest_energy) = daily_energy_harvest_.read(tokenId)
     let (daily_cost_energy) = daily_energy_cost_.read(tokenId)
 
+    let (erc20_addr) = gold_address_.read()
+
+    ### Multiplier if we are more than 2 block
+    local multiplier = block_number - old_block_number
+    let (is_zero) = is_not_zero(multiplier)
+    if is_zero == 1:
+        let (q, _) = unsigned_div_rem(multiplier, 2)
+        let new_daily_harvest_gold = daily_harvest_gold * q
+        let new_daily_cost_gold = daily_cost_gold * q
+        let new_daily_harvest_energy = daily_harvest_energy * q
+        let new_daily_cost_energy = daily_cost_energy * q
+        pay_ressources(erc1155_address, tokenId, 9, q)
+        pay_gold(caller, new_daily_harvest_gold, new_daily_cost_gold)
+        pay_energy(tokenId, new_daily_harvest_energy, new_daily_cost_energy)
+        return()
+    end
+
     # ## Pay all gold ressource and energy
-    pay_ressources(erc1155_addr, tokenId, 9)
+    pay_ressources(erc1155_address, tokenId, 9, 1)
     pay_gold(caller, daily_harvest_gold, daily_cost_gold)
     pay_energy(tokenId, daily_harvest_energy, daily_cost_energy)
 
@@ -335,7 +419,7 @@ func claim_resources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 func pay_ressources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    erc1155_address : felt, tokenId : Uint256, id : felt
+    erc1155_address : felt, tokenId : Uint256, id : felt, mul : felt
 ):
     alloc_locals
 
@@ -344,35 +428,33 @@ func pay_ressources{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     end
 
     let (caller) = get_caller_address()
-    let (local harvest) = daily_ressources_harvest_.read(tokenId, id)
-    let (local cost) = daily_ressources_cost_.read(tokenId, id)
+    let (old_harvest)  = daily_ressources_harvest_.read(tokenId, id)
+    let (old_cost)  = daily_ressources_cost_.read(tokenId, id)
 
+    let harvest = old_harvest * mul
+    let cost = old_cost * mul
     let (is_lower) = is_le(harvest, cost)
     let (uint_id) = felt_to_uint256(id)
-    if is_lower == 1:
-        let (uint_balance) = IERC1155.balanceOf(erc1155_address, caller, uint_id)
+    if is_lower == 1 :
+        let (uint_balance) = IERC1155.balanceOf(contract_address=erc1155_address, owner=caller, token_id=uint_id)
         let (local balance) = uint256_to_felt(uint_balance)
         local due = cost - harvest
         let (enough_blance) = is_le(due, balance)
-        if enough_blance == 1:
+        if enough_blance == 1 :
             let (uint_due) = felt_to_uint256(due)
-            IERC1155.burn(
-                contract_address=erc1155_address, _from=caller, id=uint_id, amount=uint_due
-            )
-            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1)
-        else:
+            IERC1155.burn(contract_address=erc1155_address, _from=caller, id=uint_id, amount=uint_due)
+            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1, mul=mul)
+        else :
             let (uint_balance) = felt_to_uint256(balance)
-            IERC1155.burn(
-                contract_address=erc1155_address, _from=caller, id=uint_id, amount=uint_balance
-            )
-            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1)
+            IERC1155.burn(contract_address=erc1155_address, _from=caller, id=uint_id, amount=uint_balance)
+            return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1, mul=mul) 
         end
     end
 
     let due = harvest - cost
     let (uint_due) = felt_to_uint256(due)
     IERC1155.mint(contract_address=erc1155_address, to=caller, id=uint_id, amount=uint_due)
-    return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1)
+    return pay_ressources(erc1155_address=erc1155_address, tokenId=tokenId, id=id - 1, mul=mul)
 end
 
 # ## Pensé à si le joueur n'a pas assez d'argent pour payer
@@ -380,10 +462,9 @@ func pay_gold{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     caller : felt, daily_harvest_gold : felt, daily_cost_gold : felt
 ):
     alloc_locals
-    let (controller) = Module.get_controller()
-    let (erc20_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Gold
-    )
+
+    let (erc20_addr) = gold_address_.read()
+
     let (is_lower) = is_le(daily_harvest_gold, daily_cost_gold)
     if is_lower == 1:
         let (local balance) = IERC20FrensCoin.balanceOf(contract_address=erc20_addr, account=caller)
@@ -427,7 +508,21 @@ func update_population{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 ):
     alloc_locals
     # Only M03 can update population
-    _only_approved()
+    # _only_approved()
+    let (m03_addr) = m03_address.read()
+    let (m01_addr) = m01_address.read()
+    let (caller) = get_caller_address()
+    
+    local check = 0
+    if m03_addr == caller:
+        local check = 1
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        with_attr error_message("M02_Resources: you can't update population."):
+            assert m01_addr = caller
+        end
+        tempvar range_check_ptr = range_check_ptr
+    end
 
     let (available_pop) = population_.read(tokenId, 0)
     let (allocated_pop) = population_.read(tokenId, 1)
@@ -466,7 +561,10 @@ func update_block_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 ):
     alloc_locals
     # Only M01 can update block_number value
-    _only_approved()
+    # _only_approved()
+    let (m01_addr) = m01_address.read()
+    let (caller) = get_caller_address()
+    assert m01_addr = caller
 
     block_number_.write(tokenId, _block_nb)
 
@@ -484,15 +582,16 @@ func _receive_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, 
     tokenId : Uint256,
     account : felt
 ):
+    let (m01_addr) = m01_address.read()
     let (caller) = get_caller_address()
+    assert m01_addr = caller
 
     let (_initialized) = initialized_.read(tokenId)
+
     assert _initialized = 0
 
-    let (controller) = Module.get_controller()
-    let (gold_erc20_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Gold
-    )
+    let (gold_erc20_addr) = gold_address_.read()
+
     # Mint some Gold (minus the price of the map)
     let (amount : Uint256) = uint256_sub(Uint256(GOLD_START, 0), Uint256(MapsPrice.Map_1, 0))
     IERC20FrensCoin.mint(gold_erc20_addr, account, amount)
@@ -501,6 +600,8 @@ func _receive_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, 
 
     return ()
 end
+
+# IERC20FrensCoin.mint(gold_erc20_addr, caller, amount)
 
 ##################
 # VIEW FUNCTIONS #
@@ -640,10 +741,11 @@ end
 func _is_owner_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     caller : felt, tokenId : Uint256
 ) -> (success : felt):
-    let (controller) = Module.get_controller()
-    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Maps
-    )
+    # let (controller) = Module.get_controller()
+    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Maps
+    # )
+    let (maps_erc721_addr) = maps_address_.read()
     # Check caller is owner of tokenId
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     if owner == caller:
@@ -653,86 +755,107 @@ func _is_owner_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 func _get_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, caller : felt, res_len : felt, res : felt*,
-    # DEBUG
-    erc1155_addr : felt
+    tokenId : Uint256, caller : felt, res_len : felt, res : felt*
 ):
-    _only_approved()
+    
+    let (erc1155_addr) = erc1155_address_.read()
 
     if res_len == 0:
         return ()
     end
-    let (controller) = Module.get_controller()
-    let (erc1155_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.ERC1155
-    )
+
     # Mint Resources
     let amount_felt = res[1]
     let id_felt = res[0]
-    # %{ print ('amount_felt : ', ids.amount_felt) %}
-    # %{ print ('id_felt : ', ids.id_felt) %}
     let (amount) = felt_to_uint256(amount_felt)
     let (res_id) = felt_to_uint256(id_felt)
     IERC1155.mint(contract_address=erc1155_addr, to=caller, id=res_id, amount=amount)
 
-    return _get_resources(tokenId, caller, res_len - 2, res + 2, erc1155_addr)
+    return _get_resources(tokenId, caller, res_len - 2, res + 2)
 end
 
 @external
 func farm{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, building_unique_id : felt
+    tokenId : Uint256, 
+    pos_start: felt
 ):
     alloc_locals
 
-    # Check caller is owner of tokenId
     let (caller) = get_caller_address()
+    let (m01_addr) = m01_address.read()
+    let (m03_addr) = m03_address.read()
+    let (erc1155_addr) = erc1155_address_.read()
+    let (erc20_addr) = gold_address_.read()
+
     let (local bool) = _is_owner_token(caller, tokenId)
     with_attr error_message("M02_Resources: caller is not owner of this tokenId"):
         assert bool = 1
     end
 
-    let (controller) = Module.get_controller()
+    # let (controller) = Module.get_controller()
 
-    let (data_len : felt, data: felt*) = IM03Buldings.get_building_data(m03_addr, tokenId, building_unique_id)
-    let pos_start = data[5]
-    let level = data[1]
-    let res_type = data[0]
+    let (block) = IM01Worlds.get_map_block(m01_addr, tokenId, pos_start)
+    let (local decomp_array : felt*) = alloc()
+    let (local bArr) = bArray(16)
+    Data._decompose(bArr, 16, block, decomp_array, 0, 0, 0)
 
-    let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Worlds)
+    # Get current id et assert qu'elles sont identiques 
+    let building_unique_id = decomp_array[7] * 100 + decomp_array[8] * 10 + decomp_array[9]
+    assert_not_zero(building_unique_id)
+
+    let res_type = decomp_array[5] * 10 + decomp_array[6]
+    let level = decomp_array[14]
+
+    # Check resource of type 2 or 3 or 20
+    local check = 0
+    if res_type == 20:
+        local check = 1
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        let (local check) = is_in_range(res_type, 1, 4)
+        tempvar range_check_ptr = range_check_ptr
+        with_attr error_message("M02_Resources: it's not possible to harvest this resource."):
+            assert check = 1
+        end
+        tempvar range_check_ptr = range_check_ptr
+    end
 
     # Get resources data from M03
     # change level from 1 to level value (if Fixed data are all filled)
+    # TODO change 1 with level
     let (building_data : BuildingFixedData) = IM03Buldings.view_fixed_data(m03_addr, res_type, 1)
     let (gains_len : felt, gains : felt*) = Data._get_costs_from_chain(
         building_data.daily_harvest.nb_resources, building_data.daily_harvest.resources_qty
     )
+    # Increase energy
+    # let (old_energy) = energy_level.read(tokenId)
+    # energy_level.write(tokenId, old_energy + gains_energy)
 
-    _get_resources(tokenId, caller, gains_len, gains, erc1155_addr)
+    # Get resources from farming
+    _get_resources(tokenId, caller, gains_len, gains)
 
-    # Update level of resources from M03
     IM03Buldings._update_level(m03_addr, tokenId, building_unique_id, level)
 
-    # Handle only one blocks resources for now
-    let (index_array : felt*) = alloc()
-    assert index_array[0] = pos_start 
-    # assert index_array[1] = pos_start + 1
-    # assert index_array[2] = pos_start + 40
-    # assert index_array[3] = pos_start + 41
-
     if level  == 3:
-        # _destroy_resources_map(tokenId, 4, index_array, building_unique_id, m01_addr)
-        _destroy_resources_map(tokenId, 1, index_array, building_unique_id, m01_addr)
+        let (local comp) = Data._compose_chain_destroyed(16, decomp_array)
+        IM01Worlds.update_map_block(m01_addr, tokenId, pos_start, comp)
+        tempvar pedersen_ptr = pedersen_ptr
         return ()
+    else:
+        let (local comp) = Data._compose_chain_harvest(16, decomp_array, level + 1)
+        IM01Worlds.update_map_block(m01_addr, tokenId, pos_start, comp)
+        tempvar pedersen_ptr = pedersen_ptr
+        return()
     end
-
-    return ()
 end
 
 func _destroy_resources_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256, index_len : felt, index: felt*, building_unique_id: felt
 ):
     alloc_locals
-        # Get block info
+
+    let (m01_addr) = m01_address.read()
+    # Get block info
     let (block) = IM01Worlds.get_map_block(m01_addr, tokenId, index[0])
     let (local decomp_array : felt*) = alloc()
     let (local bArr) = bArray(16)
@@ -750,5 +873,5 @@ func _destroy_resources_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ra
     # Update map Array
     IM01Worlds.update_map_block(m01_addr, tokenId, index[0], comp)
 
-    return _destroy_resources_map(tokenId, index_len - 1, index + 1, building_unique_id, m01_addr)
+    return _destroy_resources_map(tokenId, index_len - 1, index + 1, building_unique_id)
 end

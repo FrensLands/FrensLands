@@ -48,6 +48,33 @@ end
 func map_info_(token_id : Uint256, index : felt) -> (data : felt):
 end
 
+
+@storage_var
+func m03_address() -> (address : felt):
+end
+
+@storage_var
+func m02_address() -> (address : felt):
+end
+
+# Address of ERC1155Contract
+@storage_var
+func erc1155_address_() -> (address : felt):
+end
+
+# Address of Gold ERC20 contract
+@storage_var
+func gold_address_() -> (address : felt):
+end
+
+@storage_var
+func minter_addr_() -> (address : felt):
+end
+
+@storage_var
+func maps_address_() -> (address : felt):
+end
+
 ##########
 # EVENTS #
 ##########
@@ -75,9 +102,33 @@ end
 
 @external
 func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    address_of_controller : felt
+    # address_of_controller : felt
+    address_m3 : felt, 
+    address_m2 : felt,
+    erc1155_address : felt, 
+    gold_erc20_address : felt,
+    minter_addr : felt,
+    maps_addr : felt
 ):
-    Module.initialize_controller(address_of_controller)
+    let (caller) = get_caller_address()
+    let (admin_addr) = can_initialize_.read()
+    assert caller = admin_addr 
+
+    # Module.initialize_controller(address_of_controller)
+    assert_not_zero(address_m3)
+    assert_not_zero(address_m2)
+    assert_not_zero(erc1155_address)
+    assert_not_zero(gold_erc20_address)
+    assert_not_zero(minter_addr)
+    assert_not_zero(maps_addr)
+
+    m03_address.write(address_m3)
+    m02_address.write(address_m2)
+    erc1155_address_.write(erc1155_address)
+    gold_address_.write(gold_erc20_address)
+    minter_addr_.write(minter_addr)
+    maps_address_.write(maps_addr)
+    # Module.initialize_controller(address_of_controller)
     return ()
 end
 
@@ -107,20 +158,23 @@ end
 
 # @notice Transfer available map to player
 @external
-func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+):
     alloc_locals
     let (caller) = get_caller_address()
-    let (controller) = Module.get_controller()
 
+    # let (controller) = Module.get_controller()
     # Fetch external contracts addresses
-    let (minter_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.MinterMaps
-    )
-    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Maps
-    )
+    # let (minter_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.MinterMaps
+    # )
+    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Maps
+    # )
+    let (minter_addr) = minter_addr_.read()
+    let (maps_erc721_addr) = maps_address_.read()
 
-    # TODO : Check user does not already have a map
+    # Check user does not already have a map
     let (balance : Uint256) = IERC721Maps.balanceOf(maps_erc721_addr, caller)
     with_attr error_message("M01_Worlds: caller has already minted a map."):
         assert balance = Uint256(0, 0)
@@ -129,6 +183,7 @@ func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     let (local last_tokenId : Uint256) = supply_index.read()
     let (tokenId, _) = uint256_add(last_tokenId, Uint256(1, 0))
     supply_index.write(tokenId)
+
 
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     with_attr error_message("M01_Worlds: this map is not available."):
@@ -145,34 +200,37 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     tokenId : Uint256
 ) -> ():
     let (caller) = get_caller_address()
-    let (controller) = Module.get_controller()
+    # let (controller) = Module.get_controller()
     let (m01_contract) = get_contract_address()
+    let (maps_erc721_addr) = maps_address_.read()
 
-    # Add check que le game n'a pas déjà été commencé
+    let (game_status) = game_state_.read(tokenId)
+    assert game_status = 0
 
     # Fetch external contracts addresses
-    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Maps
-    )
-    let (gold_erc20_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Gold
-    )
+    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Maps
+    # )
+    # let (gold_erc20_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Gold
+    # )
+
     # Check caller is owner of tokenId
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
         assert owner = caller
     end
 
-    # TODO : update resources as buildings in M03_Buildings
-
     # Save block number of gameStart
     let (block_number) = get_block_number()
-    let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    # let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    let (m02_addr) = m02_address.read()
+
     IM02Resources.update_block_number(m02_addr, tokenId, block_number)
 
     IM02Resources.update_population(m02_addr, tokenId, 3, 1)
 
-    IM02Resources._receive_resources_erc20(m02_addr, tokenId, caller, gold_erc20_addr)
+    IM02Resources._receive_resources_erc20(m02_addr, tokenId, caller)
 
     game_state_.write(tokenId, 1)
 
@@ -184,14 +242,19 @@ end
 
 @external
 func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256
+    tokenId : Uint256,
+    # DEBUG
+    maps_erc721_addr : felt,
+    m02_addr: felt
 ) -> ():
     let (caller) = get_caller_address()
-    let (controller) = Module.get_controller()
+    # let (controller) = Module.get_controller()
+    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+    #     controller, ExternalContractsIds.Maps
+    # )
 
-    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Maps
-    )
+    let (maps_erc721_addr) = maps_address_.read()
+    let (m02_addr) = m02_address.read()
     # Check caller is owner of tokenId
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
@@ -202,7 +265,7 @@ func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
 
     # Update block_number
     let (block_number) = get_block_number()
-    let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    # let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
     IM02Resources.update_block_number(m02_addr, tokenId, block_number)
 
     # Pause game
@@ -211,10 +274,25 @@ func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     return ()
 end
 
-# TODO: save map to ERC721
+# # TODO: save map
 # func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
 #     tokenId : Uint256
 # ) -> ():
+#     # Checks ?
+#     # Needs to setApproval before saving_map
+#     # Call _pause_game(tokenId)
+#     # Fetch data needed for MapsERC721 new mint
+#     # Mint new Map with new updated_data ?
+#     return ()
+# end
+
+# # Function to reinitialize map ?
+# func reinitialize_world{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#     tokenId : Uint256
+# ) -> ():
+#     # Regen maps resources by blocks
+#     # Burn resources, and tokens left and restart from scratch
+#     # Need setApprovalForAll before
 #     return ()
 # end
 
@@ -318,7 +396,22 @@ end
 func update_map_block{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256, index : felt, data : felt
 ) -> ():
-    _only_approved()
+    alloc_locals
+    # _only_approved()
+    let (caller) = get_caller_address()
+    let (m03_addr) = m03_address.read()
+    let (m02_addr) = m02_address.read()
+
+    local check = 0
+    if m03_addr == caller:
+        local check = 1
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        with_attr error_message("M02_Resources: you can't update map blocks."):
+            assert m02_addr = caller
+        end
+        tempvar range_check_ptr = range_check_ptr
+    end
     map_info_.write(tokenId, index, data)
     return ()
 end
