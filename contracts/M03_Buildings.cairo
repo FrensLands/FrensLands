@@ -616,6 +616,51 @@ func _initialize_resources_iter_new{
     return _initialize_resources_iter_new(tokenId, building_type_id_len - 1, building_type_id + 1)
 end
 
+
+
+@external
+func reinitialize_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256,
+):
+    let (caller) = get_caller_address()
+    let (can_initialize) = can_initialize_.read()
+    assert caller = can_initialize
+
+    let (index) = building_index.read(tokenId)
+    _reinitialize_resources_iter(tokenId, index)
+
+    building_count.write(tokenId, 0)
+
+    return ()
+end
+
+func _reinitialize_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256,
+    index : felt,
+):
+    if index == 0:
+        building_index.write(tokenId, 0)
+        return ()
+    end
+
+    # %{ print ('level_len : ', ids.level_len) %}
+
+    # Increment building ID
+    let (current_block) = get_block_number()
+
+    # %{ print ('last_index : ', ids.last_index) %}
+
+    _building_data.write(tokenId, index, BuildingData.type_id, 0)
+    _building_data.write(tokenId, index, BuildingData.level, 0)
+    _building_data.write(tokenId, index, BuildingData.time_created, current_block)
+    _building_data.write(tokenId, index, BuildingData.pos, current_block)
+    _building_data.write(tokenId, index, BuildingData.pos, 0)
+
+    return _reinitialize_resources_iter(
+        tokenId, index - 1
+    )
+end
+
 ##################
 # VIEW FUNCTIONS #
 ##################

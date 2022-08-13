@@ -601,6 +601,26 @@ func _receive_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, 
     return ()
 end
 
+
+@external
+func _reinitialize_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256,
+    account : felt
+):
+    let (m01_addr) = m01_address.read()
+    let (caller) = get_caller_address()
+    assert m01_addr = caller
+
+
+    let (gold_erc20_addr) = gold_address_.read()
+
+    # Mint some Gold (minus the price of the map)
+    let (amount : Uint256) = uint256_sub(Uint256(GOLD_START, 0), Uint256(MapsPrice.Map_1, 0))
+    IERC20FrensCoin.burn(gold_erc20_addr, account, amount)
+
+    return ()
+end
+
 # IERC20FrensCoin.mint(gold_erc20_addr, caller, amount)
 
 ##################
