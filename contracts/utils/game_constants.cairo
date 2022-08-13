@@ -1,10 +1,13 @@
 const MAP_X_SIZE = 40
 const MAP_Y_SIZE = 16
 const NUMBER_OF_BLOCKS = 640
-const TEST_BLOCKS = 320
+
+const NB_RECHARGES = 5
 
 const DAY_LENGTH = 2
-const GOLD_START = 1000
+const GOLD_START = 250
+const RESOURCES_START = 20
+const RATIO_SECURITY = 20
 
 # Size Resources & Buildings
 const SIZE_LEVEL1_X = 1

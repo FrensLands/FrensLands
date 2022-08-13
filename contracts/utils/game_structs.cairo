@@ -37,7 +37,6 @@ namespace ResourcesType:
     const Copper = 7
     const Coal = 8
     const Phosphore = 9
-
     const count = 9
 end
 
@@ -70,12 +69,15 @@ namespace BuildingIds:
     const VegetableFarm = 17
     const CowFarm = 18
     const TreeFarm = 19
-    const Mine = 20
+    const NaturalMine = 20
     const CoalPlant = 21
     const PoliceStation = 22
     const Hospital = 23
     const Lab = 24
-    const count = 24
+    const CoalMine = 25
+    const MetalMine = 26
+    const Bush = 27
+    const count = 27
 end
 
 struct SingleResource:
@@ -97,8 +99,8 @@ struct BuildingFixedData:
     member upgrade_cost : MultipleResources
     member daily_cost : MultipleResources
     member daily_harvest : MultipleResources
-    member pop_max : felt
     member pop_min : felt
+    member new_pop : felt
 end
 
 struct BuildingData:
@@ -106,10 +108,7 @@ struct BuildingData:
     member level : felt
     member pop : felt
     member time_created : felt
-    member last_repair : felt
+    member recharged : felt
+    member last_claim : felt
     member pos : felt
 end
-
-# namespace EventsIds:
-#     const Event1 = 1
-# end

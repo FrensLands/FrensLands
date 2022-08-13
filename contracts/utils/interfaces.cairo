@@ -30,8 +30,8 @@ namespace IModuleController:
     func set_write_access(module_id_doing_writing : felt, module_id_being_written_to : felt):
     end
 
-    func update_external_contracts(external_contract_id : felt, external_contract_address : felt):
-    end
+    # func update_external_contracts(external_contract_id : felt, external_contract_address : felt):
+    # end
 end
 
 @contract_interface
@@ -56,26 +56,6 @@ end
 
 @contract_interface
 namespace IM02Resources:
-    func fill_ressources_harvest(
-        tokenId : Uint256, daily_harvest_len : felt, daily_harvest : felt*, operation : felt
-    ):
-    end
-
-    func fill_ressources_cost(
-        tokenId : Uint256, daily_cost_len : felt, daily_cost : felt*, operation : felt
-    ):
-    end
-
-    func fill_gold_energy_harvest(
-        tokenId : Uint256, daily_gold : felt, daily_energy : felt, operation : felt
-    ):
-    end
-
-    func fill_gold_energy_cost(
-        tokenId : Uint256, daily_gold : felt, daily_energy : felt, operation : felt
-    ):
-    end
-
     func update_population(tokenId : Uint256, allocated : felt, number : felt):
     end
 
@@ -91,7 +71,7 @@ namespace IM02Resources:
     func get_population(tokenId : Uint256) -> (pop_len : felt, pop : felt*):
     end
 
-    func _receive_resources_erc20(amount : Uint256, account : felt):
+    func _receive_resources_start(amount : Uint256, account : felt):
     end
 
     func _get_tokens(tokenId : Uint256, caller : felt, amount : Uint256):
@@ -99,10 +79,28 @@ namespace IM02Resources:
 
     func _get_resources(tokenId : Uint256, caller : felt, res_len : felt, res : felt*):
     end
+
+    func get_energy_level(tokenId : Uint256) -> (energy : felt):
+    end
+
+    func _update_energy(tokenId : Uint256, operation : felt, val : felt):
+    end
+
+    func _pay_frens_coins(account : felt, amount: Uint256):
+    end
+
+    func has_resources(player : felt, erc1155_addr : felt, costs_len : felt, costs : felt*, multiplier) -> (bool : felt):
+    end
+
+    func _get_resources_destroyed(tokenId : Uint256, caller : felt, res_len : felt, res : felt*, multiplier : felt):
+    end
+
+    func _reinitialize_resources(tokenId : Uint256, caller: felt):
+    end
 end
 
 @contract_interface
-namespace IM03Buldings:
+namespace IM03Buildings:
     func view_fixed_data(type : felt, level : felt) -> (data : BuildingFixedData):
     end
 
@@ -118,18 +116,28 @@ namespace IM03Buldings:
     func get_upgrade_cost(building_type : felt, level : felt) -> (res : felt):
     end
 
-    func initialize_resources(
-        tokenId : Uint256,
-        building_type_id_len : felt,
-        building_type_id : felt*,
-        level_len : felt,
-        level : felt*,
-    ):
+    func initialize_resources(tokenId : Uint256, block_number : felt, unique_id_count : felt):
     end
 
     func _destroy_building(tokenId : Uint256, building_unique_id : felt) -> ():
     end
 
     func _update_level(tokenId : Uint256, building_unique_id : felt, level : felt) -> ():
+    end
+
+    func update_building_claimed_data(
+        tokenId : Uint256, building_unique_id : felt, recharge : felt, last_claim : felt
+    ):
+    end
+
+    func view_fixed_data_claim(type : felt, level : felt) -> (
+        building_data_len : felt, building_data : felt*
+    ):
+    end
+
+    func get_all_buildings_data(token_id : Uint256) -> (data_len : felt, data : felt*):
+    end
+
+    func _reinitialize_buildings(tokenId : Uint256, caller: felt):
     end
 end
