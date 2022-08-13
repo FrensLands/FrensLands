@@ -1,29 +1,26 @@
 # SPDX-License-Identifier: MIT
-# OpenZeppelin Contracts for Cairo v0.2.0 (token/erc20/ERC20_Mintable.cairo)
+# OpenZeppelin Contracts for Cairo v0.1.0 (token/erc20/ERC20_Mintable.cairo)
 
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.bool import TRUE
-from starkware.starknet.common.syscalls import get_caller_address
 
-from openzeppelin.token.erc20.library import ERC20
+from openzeppelin.token.erc20.library import (
+    ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
+    ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
+    ERC20_transfer, ERC20_transferFrom, ERC20_mint, ERC20_burn)
 
-from openzeppelin.access.ownable import Ownable
+from openzeppelin.token.erc20.ownable import Ownable_initializer, Ownable_only_owner
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    name : felt,
-    symbol : felt,
-    decimals : felt,
-    initial_supply : Uint256,
-    recipient : felt,
-    owner : felt,
-):
-    ERC20.initializer(name, symbol, decimals)
-    ERC20._mint(recipient, initial_supply)
-    Ownable.initializer(owner)
+        name : felt, symbol : felt, decimals : felt, initial_supply : Uint256, recipient : felt,
+        owner : felt):
+    ERC20_initializer(name, symbol, decimals)
+    ERC20_mint(recipient, initial_supply)
+    Ownable_initializer(owner)
     return ()
 end
 
@@ -33,52 +30,42 @@ end
 
 @view
 func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
-    let (name) = ERC20.name()
+    let (name) = ERC20_name()
     return (name)
 end
 
 @view
 func symbol{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (symbol : felt):
-    let (symbol) = ERC20.symbol()
+    let (symbol) = ERC20_symbol()
     return (symbol)
 end
 
 @view
 func totalSupply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    totalSupply : Uint256
-):
-    let (totalSupply : Uint256) = ERC20.total_supply()
+        totalSupply : Uint256):
+    let (totalSupply : Uint256) = ERC20_totalSupply()
     return (totalSupply)
 end
 
 @view
 func decimals{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    decimals : felt
-):
-    let (decimals) = ERC20.decimals()
+        decimals : felt):
+    let (decimals) = ERC20_decimals()
     return (decimals)
 end
 
 @view
 func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    account : felt
-) -> (balance : Uint256):
-    let (balance : Uint256) = ERC20.balance_of(account)
+        account : felt) -> (balance : Uint256):
+    let (balance : Uint256) = ERC20_balanceOf(account)
     return (balance)
 end
 
 @view
 func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    owner : felt, spender : felt
-) -> (remaining : Uint256):
-    let (remaining : Uint256) = ERC20.allowance(owner, spender)
+        owner : felt, spender : felt) -> (remaining : Uint256):
+    let (remaining : Uint256) = ERC20_allowance(owner, spender)
     return (remaining)
-end
-
-@view
-func owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (owner : felt):
-    let (owner : felt) = Ownable.owner()
-    return (owner)
 end
 
 #
@@ -87,80 +74,51 @@ end
 
 @external
 func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    recipient : felt, amount : Uint256
-) -> (success : felt):
-    ERC20.transfer(recipient, amount)
+        recipient : felt, amount : Uint256) -> (success : felt):
+    ERC20_transfer(recipient, amount)
     return (TRUE)
 end
 
 @external
 func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    sender : felt, recipient : felt, amount : Uint256
-) -> (success : felt):
-    ERC20.transfer_from(sender, recipient, amount)
+        sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
+    ERC20_transferFrom(sender, recipient, amount)
     return (TRUE)
 end
 
 @external
 func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    spender : felt, amount : Uint256
-) -> (success : felt):
-    ERC20.approve(spender, amount)
+        spender : felt, amount : Uint256) -> (success : felt):
+    ERC20_approve(spender, amount)
     return (TRUE)
 end
 
 @external
 func increaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    spender : felt, added_value : Uint256
-) -> (success : felt):
-    ERC20.increase_allowance(spender, added_value)
+        spender : felt, added_value : Uint256) -> (success : felt):
+    ERC20_increaseAllowance(spender, added_value)
     return (TRUE)
 end
 
 @external
 func decreaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    spender : felt, subtracted_value : Uint256
-) -> (success : felt):
-    ERC20.decrease_allowance(spender, subtracted_value)
+        spender : felt, subtracted_value : Uint256) -> (success : felt):
+    ERC20_decreaseAllowance(spender, subtracted_value)
     return (TRUE)
 end
 
 @external
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    to : felt, amount : Uint256
-):
-    Ownable.assert_only_owner()
-    ERC20._mint(to, amount)
+        to : felt, amount : Uint256):
+    Ownable_only_owner()
+    ERC20_mint(to, amount)
     return ()
 end
 
 @external
-func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    newOwner : felt
-):
-    Ownable.transfer_ownership(newOwner)
-    return ()
-end
-
-@external
-func renounceOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable.renounce_ownership()
-    return ()
-end
-
-@external
-func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
-    let (caller) = get_caller_address()
-    ERC20._burn(caller, amount)
-    return ()
-end
-
-@external
-func burnFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    account : felt, amount : Uint256
-):
-    let (caller) = get_caller_address()
-    ERC20._spend_allowance(account, caller, amount)
-    ERC20._burn(account, amount)
+func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        account : felt, amount : Uint256):
+    Ownable_only_owner()
+    ERC20_burn(account, amount)
     return ()
 end
