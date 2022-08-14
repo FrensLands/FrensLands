@@ -344,50 +344,11 @@ func reinitialize_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_c
     let (m03_addr) = IModuleController.get_module_address(controller, ModuleIds.M03_Buildings)
     IM03Buildings._reinitialize_buildings(m03_addr, tokenId, caller)
 
-    let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 2)
-    IM03Buildings.initialize_resources(m03_addr, tokenId, block_number, unique_id_count)
-    game_state_.write(tokenId, 0)
+    # let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 2)
+    game_state_.write(tokenId, 1)
 
     # Emit NewGame event
-    NewGame.emit(caller, tokenId)
-
-    return ()
-end
-
-
-@external
-func reinitialize_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256
-) -> ():
-    let (caller) = get_caller_address()
-    # let (controller) = Module.get_controller()
-    let (m01_contract) = get_contract_address()
-    let (maps_erc721_addr) = maps_address_.read()
-
-    let (game_status) = game_state_.read(tokenId)
-    assert game_status = 0
-
-    # Check caller is owner of tokenId
-    let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
-    with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
-        assert owner = caller
-    end
-    
-    # Save block number of reinitialize
-    let (block_number) = get_block_number()
-    # let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
-    let (m02_addr) = m02_address.read()
-
-    IM02Resources.update_block_number(m02_addr, tokenId, block_number)
-
-    IM02Resources.update_population(m02_addr, tokenId, 0, 0)
-
-    IM02Resources._reinitialize_resources_erc20(m02_addr, tokenId, caller)
-
-    game_state_.write(tokenId, 0)
-
-    # Emit NewGame event
-    NewGame.emit(caller, tokenId)
+    # NewGame.emit(caller, tokenId)
 
     return ()
 end

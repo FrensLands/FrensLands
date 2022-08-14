@@ -345,25 +345,6 @@ func _has_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_chec
 end
 
 
-@external
-func _reinitialize_resources_erc20{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256,
-    account : felt
-):
-    let (m01_addr) = m01_address.read()
-    let (caller) = get_caller_address()
-    assert m01_addr = caller
-
-
-    let (gold_erc20_addr) = gold_address_.read()
-
-    # Mint some Gold (minus the price of the map)
-    let (amount : Uint256) = uint256_sub(Uint256(GOLD_START, 0), Uint256(MapsPrice.Map_1, 0))
-    IERC20FrensCoin.burn(gold_erc20_addr, account, amount)
-
-    return ()
-end
-
 # IERC20FrensCoin.mint(gold_erc20_addr, caller, amount)
 
 ##################
@@ -701,17 +682,20 @@ func _burn_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_che
     end 
 
     let (local felt_balance) = uint256_to_felt(balance)
-    let (local check) = is_le(felt_balance, RESOURCES_START)
+    let (local check) = is_in_range(felt_balance,0, RESOURCES_START)
 
-    if check == 0:   
+    if check == 0:
         local _amount = felt_balance - RESOURCES_START
+        if _amount == 0:
+            return _burn_resources(player, erc1155_addr, index + 1)
+        end
         let (local _amount_uint) = felt_to_uint256(_amount)
         IERC1155.burn(erc1155_addr, player, uint_id, _amount_uint)
         return _burn_resources(player, erc1155_addr, index + 1)
     else:
         local _amount = RESOURCES_START - felt_balance
         let (local _amount_uint) = felt_to_uint256(_amount)
-        IERC1155.burn(erc1155_addr, player, uint_id, _amount_uint)
+        IERC1155.mint(erc1155_addr, player, uint_id, _amount_uint)
         return _burn_resources(player, erc1155_addr, index + 1)
     end
 end

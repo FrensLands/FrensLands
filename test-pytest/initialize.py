@@ -411,8 +411,8 @@ async def test_set_up(starknet, admin, user_one, m01, m02, m03, erc1155, erc20, 
     assert(await erc1155.balanceOf(user_one.contract_address, to_uint(3)).call()).result == (to_uint(17),)
     assert(await m01.get_map_block(to_uint(1), 48).call()).result == (802100000880011,)
 
-    # Reinitialize game
-    await user1.send_transaction(user_one, m01.contract_address, "reinitialize_game", [1])
+    # # Reinitialize game
+    await user1.send_transaction(user_one, m01.contract_address, "reinitialize_game", [1,0])
     assert(await erc20.balanceOf(user_one.contract_address).call()).result == (to_uint(0),)
     assert(await erc1155.balanceOf(user_one.contract_address, to_uint(1)).call()).result == (to_uint(0),)
     assert(await erc1155.balanceOf(user_one.contract_address, to_uint(3)).call()).result == (to_uint(20),)
