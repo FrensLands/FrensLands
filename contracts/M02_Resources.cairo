@@ -25,7 +25,6 @@ from contracts.utils.game_constants import GOLD_START, RESOURCES_START
 from contracts.utils.tokens_interfaces import IERC721Maps, IERC20FrensCoin, IERC1155
 from contracts.utils.interfaces import IModuleController, IM03Buildings, IM01Worlds
 from contracts.library.library_module import Module
-from openzeppelin.access.ownable import Ownable
 from contracts.utils.bArray import bArray
 from contracts.library.library_data import Data
 from contracts.utils.general import felt_to_uint256, uint256_to_felt
@@ -118,19 +117,11 @@ func _claim_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
 
     local building_type_id = building_list[1]
 
-    # If buildings are Cabin, Tree, Rock or Mine - nothing to claim
-    if building_type_id == 1:
+    # Check if building claimable
+    local _check = (building_type_id - 1) * (building_type_id - 2) * (building_type_id - 3) * (building_type_id - 4) * (building_type_id - 5) * (building_type_id - 20) * (building_type_id - 27)
+    if _check == 0:
         return _claim_resources_iter(tokenId, caller, building_list_len - 5, building_list + 5, current_block)
-    end
-    if building_type_id == 2:
-        return _claim_resources_iter(tokenId, caller, building_list_len - 5, building_list + 5, current_block)
-    end
-    if building_type_id == 3:
-        return _claim_resources_iter(tokenId, caller, building_list_len - 5, building_list + 5, current_block)
-    end
-    if building_type_id == 20:
-        return _claim_resources_iter(tokenId, caller, building_list_len - 5, building_list + 5, current_block)
-    end
+    end 
 
     let (controller) = Module.get_controller()
     let (m03_addr) = IModuleController.get_module_address(controller, ModuleIds.M03_Buildings)
@@ -172,7 +163,6 @@ func _claim_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
     if is_inf == 1:
         _get_resources(tokenId, caller, daily_harvests_len, daily_harvests, nb_blocks)
         
-        # let (local erc20_addr) = gold_address_.read()
         let (local erc20_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Gold)
         local amount = daily_harvest_gold * nb_blocks
         let (local amount_uint) = felt_to_uint256(amount)
@@ -183,10 +173,8 @@ func _claim_resources_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
 
         return _claim_resources_iter(tokenId, caller, building_list_len - 5, building_list + 5, current_block)
     else:
-        # let (local erc1155_addr) = erc1155_address_.read()
         let (local erc1155_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Resources)
         _get_resources(tokenId, caller, daily_harvests_len, daily_harvests, nb_recharges)
-        # let (local erc20_addr) = gold_address_.read()
         let (local erc20_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Gold)
         local amount = daily_harvest_gold * nb_recharges
         let (local amount_uint) = felt_to_uint256(amount)
@@ -235,19 +223,10 @@ func harvest{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     let res_type = decomp_array[5] * 10 + decomp_array[6]
     let level = decomp_array[14]
 
-    # Check resource of type 2 or 3 or 20
-    # TODO : add 26
-    local check = 0
-    if res_type == 20:
-        local check = 1
-        tempvar range_check_ptr = range_check_ptr
-    else:
-        let (local check) = is_in_range(res_type, 1, 4)
-        tempvar range_check_ptr = range_check_ptr
-        with_attr error_message("M02_Resources: it's not possible to harvest this resource."):
-            assert check = 1
-        end
-        tempvar range_check_ptr = range_check_ptr
+    # Check resource of type 2 or 3 or 20 or 27
+    local _check = (res_type - 20) * (res_type - 27) * (res_type - 2) * (res_type - 3)
+    with_attr error_message("M02_Resources: it's not possible to harvest this resource."):
+        assert _check = 0
     end
 
     # Fetch fixed data
@@ -291,7 +270,7 @@ func harvest{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     )
     _get_resources(tokenId, caller, gains_len, gains, 1)
 
-    if level  == 3:
+    if level == 3:
         let (local comp) = Data._compose_chain_destroyed(16, decomp_array)
         IM01Worlds.update_map_block(m01_addr, tokenId, pos_start, comp)
         tempvar pedersen_ptr = pedersen_ptr
@@ -343,9 +322,6 @@ func _has_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_chec
 
     return _has_resources(player, erc1155_addr, costs_len - 2, costs + 2, multiplier)
 end
-
-
-# IERC20FrensCoin.mint(gold_erc20_addr, caller, amount)
 
 ##################
 # VIEW FUNCTIONS #
@@ -500,9 +476,6 @@ func _receive_resources_start{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, 
 ):
     alloc_locals
     Module.only_approved()
-
-    let (_initialized) = initialized_.read(tokenId)
-    assert _initialized = 0
 
     let (controller) = Module.get_controller()
     let (erc1155_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Resources)

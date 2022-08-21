@@ -46,10 +46,31 @@ namespace MapSeeder:
         return (arr[idx])
 
         bushes:
+        dw 92
+        dw 111
+        dw 145
         dw 151
+        dw 169
+        dw 187
         dw 201
+        dw 229
+        dw 246
         dw 248
+        dw 272
+        dw 274
+        dw 288
+        dw 291
+        dw 293
         dw 305
+        dw 364
+        dw 411
+        dw 429
+        dw 477
+        dw 482
+        dw 492
+        dw 494
+        dw 495
+        dw 552
     end
 
     @external
@@ -85,6 +106,7 @@ namespace MapSeeder:
         dw 526
         dw 537
         dw 538
+        dw 550
         dw 589
     end
 
@@ -100,12 +122,10 @@ namespace MapSeeder:
         dw 84
         dw 87
         dw 91
-        dw 92
         dw 95
         dw 99
         dw 103
         dw 106
-        dw 111
         dw 113
         dw 126
         dw 128
@@ -115,7 +135,6 @@ namespace MapSeeder:
         dw 134
         dw 143
         dw 144
-        dw 145
         dw 147
         dw 148
         dw 149
@@ -126,16 +145,13 @@ namespace MapSeeder:
         dw 164
         dw 165
         dw 168
-        dw 169
         dw 171
         dw 184
         dw 185
-        dw 187
         dw 189
         dw 190
         dw 191
         dw 196
-        dw 200
         dw 204
         dw 205
         dw 207
@@ -148,14 +164,12 @@ namespace MapSeeder:
         dw 226
         dw 227
         dw 228
-        dw 229
         dw 230
         dw 231
         dw 232
         dw 236
         dw 243
         dw 244
-        dw 246
         dw 249
         dw 250
         dw 253
@@ -167,14 +181,9 @@ namespace MapSeeder:
         dw 267
         dw 268
         dw 271
-        dw 272
-        dw 274
         dw 277
         dw 284
         dw 287
-        dw 288
-        dw 291
-        dw 293
         dw 294
         dw 301
         dw 308
@@ -194,7 +203,6 @@ namespace MapSeeder:
         dw 353
         dw 354
         dw 357
-        dw 364
         dw 366
         dw 371
         dw 373
@@ -210,14 +218,12 @@ namespace MapSeeder:
         dw 408
         dw 409
         dw 410
-        dw 411
         dw 412
         dw 414
         dw 421
         dw 424
         dw 426
         dw 427
-        dw 429
         dw 432
         dw 434
         dw 444
@@ -233,14 +239,9 @@ namespace MapSeeder:
         dw 471
         dw 473
         dw 475
-        dw 477
-        dw 482
         dw 485
         dw 488
         dw 489
-        dw 492
-        dw 494
-        dw 495
         dw 502
         dw 507
         dw 510
@@ -250,8 +251,6 @@ namespace MapSeeder:
         dw 536
         dw 540
         dw 545
-        dw 550
-        dw 552
         dw 557
         dw 562
         dw 566
@@ -260,6 +259,5 @@ namespace MapSeeder:
         dw 584
         dw 591
         dw 595
-        dw 628
     end
 end

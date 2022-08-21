@@ -10,12 +10,9 @@ from starkware.starknet.common.syscalls import (
 from starkware.cairo.common.uint256 import Uint256, uint256_sub
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.math_cmp import is_not_zero, is_le 
-#, is_le
 from starkware.cairo.common.math import (
     assert_le,
     assert_not_zero,
-    # split_felt,
-    # assert_lt_felt,
     assert_not_equal,
 )
 from starkware.cairo.common.bool import TRUE, FALSE
@@ -69,6 +66,11 @@ end
 func security(token_id : Uint256) -> (res : felt):
 end
 
+@storage_var
+func ratio_security() -> (res : felt):
+end
+
+
 ##########
 # EVENTS #
 ##########
@@ -110,6 +112,8 @@ func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_p
     _initialize_global_data_iter(
         type_len, type, level, building_cost, daily_cost, daily_harvest, pop
     )
+
+    ratio_security.write(RATIO_SECURITY)
 
     return ()
 end
@@ -226,24 +230,9 @@ func build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     let (erc1155_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Resources)
     let (frenscoins_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Gold)
 
-    with_attr error_message("M01_Worlds: you cannot build a second cabin."):
-        assert_not_equal(building_type_id, 1)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot plant trees."):
-        assert_not_equal(building_type_id, 2)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot build rocks."):
-        assert_not_equal(building_type_id, 3)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot build natural mines."):
-        assert_not_equal(building_type_id, 20)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot build a bush."):
-        assert_not_equal(building_type_id, 27)
+    local _check = (building_type_id - 1) * (building_type_id - 2) * (building_type_id - 3) * (building_type_id - 20) * (building_type_id - 27)
+    with_attr error_message("M01_Worlds: you cannot build this."):
+        assert_not_zero(_check)
     end
 
     # Fetch fixed building data
@@ -320,7 +309,8 @@ func build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         tempvar syscall_ptr = syscall_ptr
         tempvar pedersen_ptr = pedersen_ptr
     else:
-        local security_check = (current_security + 1) * RATIO_SECURITY
+        let (local curr_ratio) = ratio_security.read()
+        local security_check = (current_security + 1) * curr_ratio
         assert_le(counter + 1, security_check)
         tempvar syscall_ptr = syscall_ptr
         tempvar pedersen_ptr = pedersen_ptr
@@ -376,20 +366,9 @@ func upgrade{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         assert_not_zero(building_unique_id)
     end
 
-    with_attr error_message("M01_Worlds: you cannot upgrade trees."):
-        assert_not_equal(building_type_id, 2)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot upgrade rocks."):
-        assert_not_equal(building_type_id, 3)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot upgrade natural mines."):
-        assert_not_equal(building_type_id, 20)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot upgrade bushes."):
-        assert_not_equal(building_type_id, 27)
+    local _check = (building_type_id - 2) * (building_type_id - 3) * (building_type_id - 20) * (building_type_id - 27)
+    with_attr error_message("M01_Worlds: you cannot upgrade this resource."):
+        assert_not_zero(_check)
     end
 
     # Fetch fixed building data
@@ -479,24 +458,10 @@ func recharge_building{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_c
 
     let type_id = decomp_array[5] * 10 + decomp_array[6]
     let level = decomp_array[14]
-    with_attr error_message("M03_Buildings: you cannot recharge a cabin"):
-        assert_not_equal(type_id, 1)
-    end
 
-    with_attr error_message("M03_Buildings: you cannot recharge a tree."):
-        assert_not_equal(type_id, 2)
-    end
-
-    with_attr error_message("M03_Buildings: you cannot recharge a rock."):
-        assert_not_equal(type_id, 3)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot recharge a mine."):
-        assert_not_equal(type_id, 20)
-    end
-
-    with_attr error_message("M01_Worlds: you cannot recharge a bush."):
-        assert_not_equal(type_id, 27)
+    local _check = (type_id - 1) * (type_id - 2) * (type_id - 3) * (type_id - 20) * (type_id - 27)
+    with_attr error_message("M01_Worlds: you cannot recharge this."):
+        assert_not_zero(_check)
     end
 
     let (building_data : BuildingFixedData) = building_global_data.read(type_id, level)
@@ -539,131 +504,6 @@ func recharge_building{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_c
     _building_data.write(tokenId, building_unique_id, BuildingData.recharged, recharged + nb_days)
 
     return ()
-end
-
-@external
-func recharge_building_multiple{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, pos_start_len: felt, pos_start: felt*, nb_days_len : felt, nb_days: felt*
-):
-
-    alloc_locals
-    let (caller) = get_caller_address()
-
-    let (local bool) = _is_owner_token(caller, tokenId)
-    with_attr error_message("M03_Buildings: caller is not owner of this tokenId"):
-        assert bool = 1
-    end
-
-    with_attr error_message("M03_Buildings: arrays passed are incorrect"):
-        assert pos_start_len = nb_days_len
-    end
-
-    _recharge_building_iter(tokenId, caller, pos_start_len, pos_start, nb_days)
-
-    return ()
-
-end
-
-
-func _recharge_building_iter{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, caller : felt, pos_start_len: felt, pos_start: felt*, nb_days : felt*
-):
-    alloc_locals
-    let (caller) = get_caller_address()
-
-    if pos_start_len == 0:
-        return ()
-    end
-
-    if nb_days[0] == 0:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    let (controller) = Module.get_controller()
-    let (m01_addr) = IModuleController.get_module_address(controller, ModuleIds.M01_Worlds)
-    let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
-    let (erc1155_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Resources)
-    let (frenscoins_addr) = IModuleController.get_external_contract_address(controller, ExternalContractsIds.Gold)
-
-    # Get unique id from block pos
-    let (block) = IM01Worlds.get_map_block(m01_addr, tokenId, pos_start[0])
-    let (local decomp_array : felt*) = alloc()
-    let (local bArr) = bArray(16)
-    Data._decompose(bArr, 16, block, decomp_array, 0, 0, 0)
-
-    let building_unique_id = decomp_array[7] * 100 + decomp_array[8] * 10 + decomp_array[9]
-    if building_unique_id == 0:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    # depuis unique id je check
-    let (type_id) = _building_data.read(tokenId, building_unique_id, BuildingData.type_id)
-    let (level) = _building_data.read(tokenId, building_unique_id, BuildingData.level)
-
-    if type_id == 1:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    if type_id == 2:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    if type_id == 3:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    if type_id == 20:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    if type_id == 27:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    let (building_data : BuildingFixedData) = building_global_data.read(type_id, level)
-    if building_data.upgrade_cost.nb_resources == 0:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    # Get daily costs
-    let (costs_len : felt, costs : felt*) = _get_costs_from_chain(
-        building_data.daily_cost.nb_resources, building_data.daily_cost.resources_qty
-    )
-    local daily_costs_struct : MultipleResources = building_data.daily_cost
-    local daily_cost_gold = daily_costs_struct.gold_qty
-    local daily_cost_energy = daily_costs_struct.energy_qty
-
-    # FrensCoins
-    let (local balance_coins) = IERC20FrensCoin.balanceOf(frenscoins_addr, caller)
-    let (felt_balance) = uint256_to_felt(balance_coins)
-    let (enough_balance) = is_le(daily_cost_gold * nb_days[0], felt_balance)
-    if enough_balance == 0:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    # Resources
-    let (has_resources) = IM02Resources.has_resources(m02_addr, caller, erc1155_addr, costs_len, costs, nb_days[0])
-    if has_resources == 0:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    # Energy
-    let (current_energy) = IM02Resources.get_energy_level(m02_addr, tokenId)
-    let (has_energy) = is_le(daily_cost_energy * nb_days[0], current_energy)
-    if has_energy == 0:
-        return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
-    end
-
-    # If all ok alors pay
-    let (uint_costs) = felt_to_uint256(daily_cost_gold * nb_days[0])
-    IM02Resources._pay_frens_coins(m02_addr, caller, uint_costs)
-    IM02Resources._update_energy(m02_addr, tokenId, 0, daily_cost_energy * nb_days[0])
-
-    # Update recharges
-    let (recharged) = _building_data.read(tokenId, building_unique_id, BuildingData.recharged)
-    _building_data.write(tokenId, building_unique_id, BuildingData.recharged, recharged + nb_days[0])
-
-    return _recharge_building_iter(tokenId, caller, pos_start_len - 1, pos_start + 1, nb_days + 1)
 end
 
 @external
@@ -746,6 +586,18 @@ func initialize_resources{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, rang
     return ()
 end
 
+@external
+func update_ratio_security{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    new_ratio: felt
+):
+    let (caller) = get_caller_address()
+    let (admin_addr) = can_initialize_.read()
+    assert caller = admin_addr
+
+    ratio_security.write(new_ratio)
+
+    return ()
+end
 
 ##################
 # VIEW FUNCTIONS #
@@ -904,6 +756,14 @@ func get_upgrade_cost{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
     local all_costs : MultipleResources = data.upgrade_cost
     let res = all_costs.resources_qty
     return (res)
+end
+
+@view
+func get_ratio_security{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+) -> (ratio: felt):
+    let (ratio) = ratio_security.read()
+
+    return (ratio)
 end
 
 ######################

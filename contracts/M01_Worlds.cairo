@@ -73,40 +73,7 @@ end
 # EXTERNAL FUNCTIONS #
 ######################
 
-# @notice Transfer available map to player
-@external
-func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
-    alloc_locals
-    let (caller) = get_caller_address()
-    let (controller) = Module.get_controller()
-    # Fetch external contracts addresses
-    let (minter_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.MinterMaps
-    )
-    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-        controller, ExternalContractsIds.Maps
-    )
-
-    # Check user does not already have a map
-    let (balance : Uint256) = IERC721Maps.balanceOf(maps_erc721_addr, caller)
-    with_attr error_message("M01_Worlds: caller has already minted a map."):
-        assert balance = Uint256(0, 0)
-    end
-
-    let (local last_tokenId : Uint256) = supply_index.read()
-    let (tokenId, _) = uint256_add(last_tokenId, Uint256(1, 0))
-    supply_index.write(tokenId)
-
-    let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
-    with_attr error_message("M01_Worlds: this map is not available."):
-        assert owner = minter_addr
-    end
-
-    IERC721Maps.transferFrom(maps_erc721_addr, minter_addr, caller, tokenId)
-
-    return ()
-end
-
+# @notice initialize game for player
 @external
 func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256
@@ -129,7 +96,7 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
         assert owner = caller
     end
 
-    let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 2)
+    let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 0, 2)
 
     let (local block_number) = get_block_number()
     let (local m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
@@ -139,7 +106,6 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     IM02Resources.update_block_number(m02_addr, tokenId, block_number)
     IM02Resources.update_population(m02_addr, tokenId, 3, 1)
     IM02Resources._receive_resources_start(m02_addr, tokenId, caller)
-    # Ajouter des conditions dans cette boucle ? pour reinitialize + start game ?
 
     game_state_.write(tokenId, 1)
 
@@ -162,6 +128,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
     counter_tree : felt,
     counter_rocks : felt,
     counter_mines : felt,
+    counter_bush: felt,
     building_unique_id : felt,
 ) -> (building_unique_id : felt):
     alloc_locals
@@ -173,7 +140,6 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
         local building_type_id = 1
         local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * 1) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
         map_info_.write(tokenId, index, comp)
-        # Write dans buildings
         if _x == MAP_X_SIZE:
             return _initialize_maps(
                 tokenId,
@@ -183,7 +149,8 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree,
                 counter_rocks,
                 counter_mines,
-                building_unique_id + 1,
+                counter_bush,
+                building_unique_id,
             )
         else:
             return _initialize_maps(
@@ -194,7 +161,8 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree,
                 counter_rocks,
                 counter_mines,
-                building_unique_id + 1,
+                counter_bush,
+                building_unique_id,
             )
         end
     end
@@ -213,6 +181,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree + 1,
                 counter_rocks,
                 counter_mines,
+                counter_bush,
                 building_unique_id + 1,
             )
         else:
@@ -224,6 +193,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree + 1,
                 counter_rocks,
                 counter_mines,
+                counter_bush,
                 building_unique_id + 1,
             )
         end
@@ -243,6 +213,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree,
                 counter_rocks + 1,
                 counter_mines,
+                counter_bush,
                 building_unique_id + 1,
             )
         else:
@@ -254,6 +225,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree,
                 counter_rocks + 1,
                 counter_mines,
+                counter_bush,
                 building_unique_id + 1,
             )
         end
@@ -273,6 +245,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree,
                 counter_rocks,
                 counter_mines + 1,
+                counter_bush,
                 building_unique_id + 1,
             )
         else:
@@ -284,6 +257,39 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
                 counter_tree,
                 counter_rocks,
                 counter_mines + 1,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        end
+    end
+
+    let (is_bush) = MapSeeder.get_bushes(counter_bush)
+    if is_bush == index:
+        local building_type_id = 27
+        local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * building_unique_id) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+        map_info_.write(tokenId, index, comp)
+        if _x == MAP_X_SIZE:
+            return _initialize_maps(
+                tokenId,
+                1,
+                _y + 1,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines,
+                counter_bush + 1,
+                building_unique_id + 1,
+            )
+        else:
+            return _initialize_maps(
+                tokenId,
+                _x + 1,
+                _y,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines,
+                counter_bush + 1,
                 building_unique_id + 1,
             )
         end
@@ -300,6 +306,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
             counter_tree,
             counter_rocks,
             counter_mines,
+            counter_bush,
             building_unique_id,
         )
     else:
@@ -311,6 +318,7 @@ func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
             counter_tree,
             counter_rocks,
             counter_mines,
+            counter_bush,
             building_unique_id,
         )
     end
@@ -344,36 +352,13 @@ func reinitialize_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_c
     let (m03_addr) = IModuleController.get_module_address(controller, ModuleIds.M03_Buildings)
     IM03Buildings._reinitialize_buildings(m03_addr, tokenId, caller)
 
-    # let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 2)
-    game_state_.write(tokenId, 1)
+    let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 0, 2)
+    IM03Buildings.initialize_resources(m03_addr, tokenId, block_number, unique_id_count)
 
-    # Emit NewGame event
-    # NewGame.emit(caller, tokenId)
+    game_state_.write(tokenId, 1)
 
     return ()
 end
-
-# # TODO: save map
-# func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> ():
-#     # Checks ?
-#     # Needs to setApproval before saving_map
-#     # Call _pause_game(tokenId)
-#     # Fetch data needed for MapsERC721 new mint
-#     # Mint new Map with new updated_data ?
-#     return ()
-# end
-
-# # Function to reinitialize map ?
-# func reinitialize_world{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> ():
-#     # Regen maps resources by blocks
-#     # Burn resources, and tokens left and restart from scratch
-#     # Need setApprovalForAll before
-#     return ()
-# end
 
 # @notice checks if player can build a building
 # @param building_size : 1, 2 or 4 blocks
