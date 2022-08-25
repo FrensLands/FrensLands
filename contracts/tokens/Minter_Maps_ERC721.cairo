@@ -8,6 +8,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_add
 
 from contracts.utils.interfaces import IModuleController
 from contracts.utils.tokens_interfaces import IERC721Maps
+from contracts.utils.general import felt_to_uint256
 
 ###########
 # STORAGE #
@@ -86,6 +87,30 @@ func mint_all{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
 
     let (next_id, _) = uint256_add(token_id, Uint256(1, 0))
     mint_all(nb - 1, next_id)
+    return ()
+end
+
+@external
+func transfer_batch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    nb : felt, token_id_len : felt, token_id : felt*, player_len : felt, player: felt*
+):
+    let (admin) = maps_erc721_admin.read()
+    let (caller) = get_caller_address()
+    with_attr error_message("Maps ERC721: caller is not the admin."):
+        assert admin = caller
+    end
+
+    if nb == 0:
+        return ()
+    end
+
+    let (maps_erc721_contract_addr) = maps_erc721_address.read()
+    let (minter_address) = get_contract_address()
+
+    let (token_id_uint) = felt_to_uint256(token_id[0])
+    IERC721Maps.transferFrom(maps_erc721_contract_addr, minter_address, player[0], token_id_uint)
+
+    transfer_batch(nb - 1, token_id_len - 1, token_id + 1, player_len - 1, player + 1)
     return ()
 end
 

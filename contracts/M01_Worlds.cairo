@@ -13,12 +13,13 @@ from starkware.cairo.common.math_cmp import is_not_zero, is_le
 from starkware.cairo.common.math import assert_not_zero, assert_le, split_felt, assert_lt_felt
 
 from contracts.utils.game_structs import ModuleIds, ExternalContractsIds, MapsPrice
-from contracts.utils.game_constants import GOLD_START, NUMBER_OF_BLOCKS, MAP_X_SIZE, TEST_BLOCKS
+from contracts.utils.game_constants import GOLD_START, NUMBER_OF_BLOCKS, MAP_X_SIZE
 
 from contracts.utils.tokens_interfaces import IERC721Maps, IERC20FrensCoin
-from contracts.utils.interfaces import IModuleController, IM02Resources
+from contracts.utils.interfaces import IModuleController, IM02Resources, IM03Buildings
 from contracts.library.library_module import Module
 from contracts.library.library_data import Data
+from contracts.MapSeeder import MapSeeder
 from contracts.utils.bArray import bArray
 
 ###########
@@ -38,41 +39,9 @@ end
 func game_state_(token_id : Uint256) -> (state : felt):
 end
 
-# Number of on-going games
-# @storage_var
-# func nb_games_() -> (amount : felt):
-# end
-
 # Map information
 @storage_var
 func map_info_(token_id : Uint256, index : felt) -> (data : felt):
-end
-
-
-@storage_var
-func m03_address() -> (address : felt):
-end
-
-@storage_var
-func m02_address() -> (address : felt):
-end
-
-# Address of ERC1155Contract
-@storage_var
-func erc1155_address_() -> (address : felt):
-end
-
-# Address of Gold ERC20 contract
-@storage_var
-func gold_address_() -> (address : felt):
-end
-
-@storage_var
-func minter_addr_() -> (address : felt):
-end
-
-@storage_var
-func maps_address_() -> (address : felt):
 end
 
 ##########
@@ -91,44 +60,12 @@ end
 # CONSTRUCTOR #
 ###############
 
-@constructor
-func constructor{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(admin : felt):
-    can_initialize_.write(admin)
-
-    supply_index.write(Uint256(0, 0))
-
-    return ()
-end
-
 @external
 func initializer{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    # address_of_controller : felt
-    address_m3 : felt, 
-    address_m2 : felt,
-    erc1155_address : felt, 
-    gold_erc20_address : felt,
-    minter_addr : felt,
-    maps_addr : felt
+    address_of_controller : felt
 ):
-    let (caller) = get_caller_address()
-    let (admin_addr) = can_initialize_.read()
-    assert caller = admin_addr 
+    Module.initialize_controller(address_of_controller)
 
-    # Module.initialize_controller(address_of_controller)
-    assert_not_zero(address_m3)
-    assert_not_zero(address_m2)
-    assert_not_zero(erc1155_address)
-    assert_not_zero(gold_erc20_address)
-    assert_not_zero(minter_addr)
-    assert_not_zero(maps_addr)
-
-    m03_address.write(address_m3)
-    m02_address.write(address_m2)
-    erc1155_address_.write(erc1155_address)
-    gold_address_.write(gold_erc20_address)
-    minter_addr_.write(minter_addr)
-    maps_address_.write(maps_addr)
-    # Module.initialize_controller(address_of_controller)
     return ()
 end
 
@@ -136,101 +73,39 @@ end
 # EXTERNAL FUNCTIONS #
 ######################
 
-# @notice Initialize maps info
-# @param data array of 640 blocks
-# @param index starts at 1
-@external
-func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, data_len : felt, data : felt*, index : felt
-):
-    let (caller) = get_caller_address()
-    let (can_initialize) = can_initialize_.read()
-    assert caller = can_initialize
-
-    if data_len == 0:
-        return ()
-    end
-
-    map_info_.write(tokenId, index, data[0])
-
-    return _initialize_maps(tokenId, data_len - 1, data + 1, index + 1)
-end
-
-# @notice Transfer available map to player
-@external
-func get_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-):
-    alloc_locals
-    let (caller) = get_caller_address()
-
-    # let (controller) = Module.get_controller()
-    # Fetch external contracts addresses
-    # let (minter_addr) = IModuleController.get_external_contract_address(
-    #     controller, ExternalContractsIds.MinterMaps
-    # )
-    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-    #     controller, ExternalContractsIds.Maps
-    # )
-    let (minter_addr) = minter_addr_.read()
-    let (maps_erc721_addr) = maps_address_.read()
-
-    # Check user does not already have a map
-    let (balance : Uint256) = IERC721Maps.balanceOf(maps_erc721_addr, caller)
-    with_attr error_message("M01_Worlds: caller has already minted a map."):
-        assert balance = Uint256(0, 0)
-    end
-
-    let (local last_tokenId : Uint256) = supply_index.read()
-    let (tokenId, _) = uint256_add(last_tokenId, Uint256(1, 0))
-    supply_index.write(tokenId)
-
-
-    let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
-    with_attr error_message("M01_Worlds: this map is not available."):
-        assert owner = minter_addr
-    end
-
-    IERC721Maps.transferFrom(maps_erc721_addr, minter_addr, caller, tokenId)
-
-    return ()
-end
-
+# @notice initialize game for player
 @external
 func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256
 ) -> ():
-    let (caller) = get_caller_address()
-    # let (controller) = Module.get_controller()
+    alloc_locals
+    
     let (m01_contract) = get_contract_address()
-    let (maps_erc721_addr) = maps_address_.read()
+    let (controller) = Module.get_controller()
+    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Maps
+    )
 
     let (game_status) = game_state_.read(tokenId)
     assert game_status = 0
 
-    # Fetch external contracts addresses
-    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-    #     controller, ExternalContractsIds.Maps
-    # )
-    # let (gold_erc20_addr) = IModuleController.get_external_contract_address(
-    #     controller, ExternalContractsIds.Gold
-    # )
-
     # Check caller is owner of tokenId
-    let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
+    let (local caller) = get_caller_address()
+    let (local owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
         assert owner = caller
     end
 
-    # Save block number of gameStart
-    let (block_number) = get_block_number()
-    # let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
-    let (m02_addr) = m02_address.read()
+    let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 0, 2)
 
+    let (local block_number) = get_block_number()
+    let (local m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    let (local m03_addr) = IModuleController.get_module_address(controller, ModuleIds.M03_Buildings)
+
+    IM03Buildings.initialize_resources(m03_addr, tokenId, block_number, unique_id_count)
     IM02Resources.update_block_number(m02_addr, tokenId, block_number)
-
     IM02Resources.update_population(m02_addr, tokenId, 3, 1)
-
-    IM02Resources._receive_resources_erc20(m02_addr, tokenId, caller)
+    IM02Resources._receive_resources_start(m02_addr, tokenId, caller)
 
     game_state_.write(tokenId, 1)
 
@@ -240,61 +115,250 @@ func start_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     return ()
 end
 
-@external
-func pause_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+# index : 1 à 640
+# _x : 1 à 40
+# -y : 1 à 16
+# counter trees
+# position cabin
+func _initialize_maps{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     tokenId : Uint256,
-    # DEBUG
-    maps_erc721_addr : felt,
-    m02_addr: felt
-) -> ():
-    let (caller) = get_caller_address()
-    # let (controller) = Module.get_controller()
-    # let (maps_erc721_addr) = IModuleController.get_external_contract_address(
-    #     controller, ExternalContractsIds.Maps
-    # )
+    _x : felt,
+    _y : felt,
+    index : felt,
+    counter_tree : felt,
+    counter_rocks : felt,
+    counter_mines : felt,
+    counter_bush: felt,
+    building_unique_id : felt,
+) -> (building_unique_id : felt):
+    alloc_locals
+    if index == NUMBER_OF_BLOCKS + 1:
+        return (building_unique_id)
+    end
 
-    let (maps_erc721_addr) = maps_address_.read()
-    let (m02_addr) = m02_address.read()
+    if index == 300:
+        local building_type_id = 1
+        local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * 1) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+        map_info_.write(tokenId, index, comp)
+        if _x == MAP_X_SIZE:
+            return _initialize_maps(
+                tokenId,
+                1,
+                _y + 1,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines,
+                counter_bush,
+                building_unique_id,
+            )
+        else:
+            return _initialize_maps(
+                tokenId,
+                _x + 1,
+                _y,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines,
+                counter_bush,
+                building_unique_id,
+            )
+        end
+    end
+
+    let (is_tree) = MapSeeder.get_tree(counter_tree)
+    if is_tree == index:
+        local building_type_id = 3
+        local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * building_unique_id) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+        map_info_.write(tokenId, index, comp)
+        if _x == MAP_X_SIZE:
+            return _initialize_maps(
+                tokenId,
+                1,
+                _y + 1,
+                index + 1,
+                counter_tree + 1,
+                counter_rocks,
+                counter_mines,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        else:
+            return _initialize_maps(
+                tokenId,
+                _x + 1,
+                _y,
+                index + 1,
+                counter_tree + 1,
+                counter_rocks,
+                counter_mines,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        end
+    end
+
+    let (is_rocks) = MapSeeder.get_rocks(counter_rocks)
+    if is_rocks == index:
+        local building_type_id = 2
+        local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * building_unique_id) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+        map_info_.write(tokenId, index, comp)
+        if _x == MAP_X_SIZE:
+            return _initialize_maps(
+                tokenId,
+                1,
+                _y + 1,
+                index + 1,
+                counter_tree,
+                counter_rocks + 1,
+                counter_mines,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        else:
+            return _initialize_maps(
+                tokenId,
+                _x + 1,
+                _y,
+                index + 1,
+                counter_tree,
+                counter_rocks + 1,
+                counter_mines,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        end
+    end
+
+    let (is_mine) = MapSeeder.get_mines(counter_mines)
+    if is_mine == index:
+        local building_type_id = 20
+        local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * building_unique_id) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+        map_info_.write(tokenId, index, comp)
+        if _x == MAP_X_SIZE:
+            return _initialize_maps(
+                tokenId,
+                1,
+                _y + 1,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines + 1,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        else:
+            return _initialize_maps(
+                tokenId,
+                _x + 1,
+                _y,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines + 1,
+                counter_bush,
+                building_unique_id + 1,
+            )
+        end
+    end
+
+    let (is_bush) = MapSeeder.get_bushes(counter_bush)
+    if is_bush == index:
+        local building_type_id = 27
+        local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * building_type_id) + (1000000 * building_unique_id) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+        map_info_.write(tokenId, index, comp)
+        if _x == MAP_X_SIZE:
+            return _initialize_maps(
+                tokenId,
+                1,
+                _y + 1,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines,
+                counter_bush + 1,
+                building_unique_id + 1,
+            )
+        else:
+            return _initialize_maps(
+                tokenId,
+                _x + 1,
+                _y,
+                index + 1,
+                counter_tree,
+                counter_rocks,
+                counter_mines,
+                counter_bush + 1,
+                building_unique_id + 1,
+            )
+        end
+    end
+
+    local comp = (100000000000000 * _x) + (1000000000000 * _y) + (100000000000 * 1) + (1000000000 * 0) + (1000000 * 0) + (100000 * 8) + (10000 * 8) + (100 * 0) + (10 * 1) + 1
+    map_info_.write(tokenId, index, comp)
+    if _x == MAP_X_SIZE:
+        return _initialize_maps(
+            tokenId,
+            1,
+            _y + 1,
+            index + 1,
+            counter_tree,
+            counter_rocks,
+            counter_mines,
+            counter_bush,
+            building_unique_id,
+        )
+    else:
+        return _initialize_maps(
+            tokenId,
+            _x + 1,
+            _y,
+            index + 1,
+            counter_tree,
+            counter_rocks,
+            counter_mines,
+            counter_bush,
+            building_unique_id,
+        )
+    end
+end
+
+@external
+func reinitialize_game{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+    tokenId : Uint256
+) -> ():
+    alloc_locals
+    let (caller) = get_caller_address()
+    let (controller) = Module.get_controller()
+    let (m01_contract) = get_contract_address()
+    let (maps_erc721_addr) = IModuleController.get_external_contract_address(
+        controller, ExternalContractsIds.Maps
+    )
+
     # Check caller is owner of tokenId
     let (owner : felt) = IERC721Maps.ownerOf(maps_erc721_addr, tokenId)
     with_attr error_message("M01_Worlds: caller is not owner of this tokenId"):
         assert owner = caller
     end
-
-    # TODO : check if you still need to pay or harvest resources
-
-    # Update block_number
+    
+    # Save block number of reinitialize
     let (block_number) = get_block_number()
-    # let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
+    let (m02_addr) = IModuleController.get_module_address(controller, ModuleIds.M02_Resources)
     IM02Resources.update_block_number(m02_addr, tokenId, block_number)
+    IM02Resources.update_population(m02_addr, tokenId, 5, 1)
+    IM02Resources._reinitialize_resources(m02_addr, tokenId, caller)
 
-    # Pause game
-    game_state_.write(tokenId, 0)
+    let (m03_addr) = IModuleController.get_module_address(controller, ModuleIds.M03_Buildings)
+    IM03Buildings._reinitialize_buildings(m03_addr, tokenId, caller)
+
+    let (local unique_id_count) = _initialize_maps(tokenId, 1, 1, 1, 0, 0, 0, 0, 2)
+    IM03Buildings.initialize_resources(m03_addr, tokenId, block_number, unique_id_count)
+
+    game_state_.write(tokenId, 1)
 
     return ()
 end
-
-# # TODO: save map
-# func save_map{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> ():
-#     # Checks ?
-#     # Needs to setApproval before saving_map
-#     # Call _pause_game(tokenId)
-#     # Fetch data needed for MapsERC721 new mint
-#     # Mint new Map with new updated_data ?
-#     return ()
-# end
-
-# # Function to reinitialize map ?
-# func reinitialize_world{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#     tokenId : Uint256
-# ) -> ():
-#     # Regen maps resources by blocks
-#     # Burn resources, and tokens left and restart from scratch
-#     # Need setApprovalForAll before
-#     return ()
-# end
 
 # @notice checks if player can build a building
 # @param building_size : 1, 2 or 4 blocks
@@ -397,21 +461,7 @@ func update_map_block{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_ch
     tokenId : Uint256, index : felt, data : felt
 ) -> ():
     alloc_locals
-    # _only_approved()
-    let (caller) = get_caller_address()
-    let (m03_addr) = m03_address.read()
-    let (m02_addr) = m02_address.read()
-
-    local check = 0
-    if m03_addr == caller:
-        local check = 1
-        tempvar range_check_ptr = range_check_ptr
-    else:
-        with_attr error_message("M02_Resources: you can't update map blocks."):
-            assert m02_addr = caller
-        end
-        tempvar range_check_ptr = range_check_ptr
-    end
+    Module.only_approved()
     map_info_.write(tokenId, index, data)
     return ()
 end
@@ -469,8 +519,6 @@ end
 # INTERNAL FUNCTIONS #
 ######################
 
-# TODO: Add function to update maps blocks
-
 # @notice fill map array
 # @param index need to start at index at 1
 func _fill_map_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
@@ -484,27 +532,5 @@ func _fill_map_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_che
 
     _fill_map_array(tokenId, data_len - 1, data + 1, index + 1)
 
-    return ()
-end
-
-func felt_to_uint256{range_check_ptr}(x) -> (uint_x : Uint256):
-    let (high, low) = split_felt(x)
-    return (Uint256(low=low, high=high))
-end
-
-func uint256_to_felt{range_check_ptr}(value : Uint256) -> (value : felt):
-    assert_lt_felt(value.high, 2 ** 123)
-    return (value.high * (2 ** 128) + value.low)
-end
-
-# @notice Checks write-permission of the calling contract.
-func _only_approved{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    # Get the address of the module trying to write to this contract.
-    let (caller) = get_caller_address()
-    let (controller) = Module.get_controller()
-    let (bool) = IModuleController.has_write_access(
-        contract_address=controller, address_attempting_to_write=caller
-    )
-    assert_not_zero(bool)
     return ()
 end
