@@ -8,120 +8,120 @@ from contracts.utils.interfaces import IModuleController
 
 from openzeppelin.access.ownable import Ownable
 
-###########
-# STORAGE #
-###########
+// ###########
+// # STORAGE #
+// ###########
 
 @storage_var
-func controller_address() -> (address : felt):
-end
+func controller_address() -> (address: felt) {
+}
 
-# 1=locked.
+// # 1=locked.
 @storage_var
-func lock() -> (bool : felt):
-end
+func lock() -> (bool: felt) {
+}
 
-###############
-# CONSTRUCTOR #
-###############
+// ###############
+// # CONSTRUCTOR #
+// ###############
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    owner_address : felt
-):
-    Ownable.initializer(owner_address)
-    return ()
-end
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    owner_address: felt
+) {
+    Ownable.initializer(owner_address);
+    return ();
+}
 
-######################
-# EXTERNAL FUNCTIONS #
-######################
+// ######################
+// # EXTERNAL FUNCTIONS #
+// ######################
 
-# Called to save the address of the Module Controller
+// # Called to save the address of the Module Controller
 @external
-func set_address_of_controller{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    contract_address : felt
-):
-    Ownable.assert_only_owner()
-    let (locked) = lock.read()
-    assert_not_zero(1 - locked)
-    lock.write(1)
+func set_address_of_controller{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    contract_address: felt
+) {
+    Ownable.assert_only_owner();
+    let (locked) = lock.read();
+    assert_not_zero(1 - locked);
+    lock.write(1);
 
-    controller_address.write(contract_address)
+    controller_address.write(contract_address);
 
-    return ()
-end
+    return ();
+}
 
-# Called to replace the contract that controls the Arbiter
+// # Called to replace the contract that controls the Arbiter
 @external
-func replace_self{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    new_arbiter_address : felt
-):
-    Ownable.assert_only_owner()
-    let (controller) = controller_address.read()
-    # The ModuleController has a fixed address. The Arbiter
-    # may be upgraded by calling the ModuleController and declaring
-    # the new Arbiter.
+func replace_self{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    new_arbiter_address: felt
+) {
+    Ownable.assert_only_owner();
+    let (controller) = controller_address.read();
+    // # The ModuleController has a fixed address. The Arbiter
+    // # may be upgraded by calling the ModuleController and declaring
+    // # the new Arbiter.
     IModuleController.appoint_new_arbiter(
         contract_address=controller, new_arbiter=new_arbiter_address
-    )
+    );
 
-    return ()
-end
+    return ();
+}
 
-# Called to appoint a new owner of Arbiter contract
+// # Called to appoint a new owner of Arbiter contract
 @external
-func appoint_new_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    new_owner_address : felt
-):
-    Ownable.assert_only_owner()
-    Ownable.transfer_ownership(new_owner_address)
+func appoint_new_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    new_owner_address: felt
+) {
+    Ownable.assert_only_owner();
+    Ownable.transfer_ownership(new_owner_address);
 
-    return ()
-end
+    return ();
+}
 
-# Called to approve a deployed module as identified by ID
+// # Called to approve a deployed module as identified by ID
 @external
-func appoint_contract_as_module{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    module_address : felt, module_id : felt
-):
-    Ownable.assert_only_owner()
-    let (controller) = controller_address.read()
+func appoint_contract_as_module{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    module_address: felt, module_id: felt
+) {
+    Ownable.assert_only_owner();
+    let (controller) = controller_address.read();
 
     IModuleController.set_address_for_module_id(
         contract_address=controller, module_id=module_id, module_address=module_address
-    )
+    );
 
-    return ()
-end
+    return ();
+}
 
-# Called to authorize write access of one module to another
+// # Called to authorize write access of one module to another
 @external
 func approve_module_to_module_write_access{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(module_id_doing_writing : felt, module_id_being_written_to : felt):
-    Ownable.assert_only_owner()
-    let (controller) = controller_address.read()
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
+}(module_id_doing_writing: felt, module_id_being_written_to: felt) {
+    Ownable.assert_only_owner();
+    let (controller) = controller_address.read();
 
     IModuleController.set_write_access(
         contract_address=controller,
         module_id_doing_writing=module_id_doing_writing,
         module_id_being_written_to=module_id_being_written_to,
-    )
+    );
 
-    return ()
-end
+    return ();
+}
 
 @external
 func batch_set_controller_addresses{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(m01_addr : felt, m02_addr : felt, m03_addr : felt):
-    Ownable.assert_only_owner()
-    let (controller) = controller_address.read()
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
+}(m01_addr: felt, m02_addr: felt, m03_addr: felt) {
+    Ownable.assert_only_owner();
+    let (controller) = controller_address.read();
 
     IModuleController.set_initial_module_addresses(
         contract_address=controller, m01_addr=m01_addr, m02_addr=m02_addr, m03_addr=m03_addr
-    )
+    );
 
-    return ()
-end
+    return ();
+}

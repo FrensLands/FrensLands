@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: MIT
-# OpenZeppelin Cairo Contracts v0.1.0 (token/erc721/ERC721_Mintable_Pausable.cairo)
+// SPDX-License-Identifier: MIT
+// OpenZeppelin Cairo Contracts v0.1.0 (token/erc721/ERC721_Mintable_Pausable.cairo)
 
 %lang starknet
 
@@ -34,158 +34,158 @@ from openzeppelin.security.pausable import (
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
-#
-# Constructor
-#
+//
+// Constructor
+//
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    name : felt, symbol : felt, owner : felt
-):
-    ERC721_initializer(name, symbol)
-    Ownable_initializer(owner)
-    return ()
-end
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    name: felt, symbol: felt, owner: felt
+) {
+    ERC721_initializer(name, symbol);
+    Ownable_initializer(owner);
+    return ();
+}
 
-#
-# Getters
-#
-
-@view
-func supportsInterface{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    interfaceId : felt
-) -> (success : felt):
-    let (success) = ERC165.register_interface(interfaceId)
-    return (success)
-end
+//
+// Getters
+//
 
 @view
-func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
-    let (name) = ERC721_name()
-    return (name)
-end
+func supportsInterface{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    interfaceId: felt
+) -> (success: felt) {
+    let (success) = ERC165.register_interface(interfaceId);
+    return (success,);
+}
 
 @view
-func symbol{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (symbol : felt):
-    let (symbol) = ERC721_symbol()
-    return (symbol)
-end
+func name{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (name: felt) {
+    let (name) = ERC721_name();
+    return (name,);
+}
 
 @view
-func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt) -> (
-    balance : Uint256
-):
-    let (balance : Uint256) = ERC721_balanceOf(owner)
-    return (balance)
-end
+func symbol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (symbol: felt) {
+    let (symbol) = ERC721_symbol();
+    return (symbol,);
+}
 
 @view
-func ownerOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tokenId : Uint256
-) -> (owner : felt):
-    let (owner : felt) = ERC721_ownerOf(tokenId)
-    return (owner)
-end
+func balanceOf{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(owner: felt) -> (
+    balance: Uint256
+) {
+    let (balance: Uint256) = ERC721_balanceOf(owner);
+    return (balance,);
+}
 
 @view
-func getApproved{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tokenId : Uint256
-) -> (approved : felt):
-    let (approved : felt) = ERC721_getApproved(tokenId)
-    return (approved)
-end
+func ownerOf{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(tokenId: Uint256) -> (
+    owner: felt
+) {
+    let (owner: felt) = ERC721_ownerOf(tokenId);
+    return (owner,);
+}
 
 @view
-func isApprovedForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    owner : felt, operator : felt
-) -> (isApproved : felt):
-    let (isApproved : felt) = ERC721_isApprovedForAll(owner, operator)
-    return (isApproved)
-end
+func getApproved{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    tokenId: Uint256
+) -> (approved: felt) {
+    let (approved: felt) = ERC721_getApproved(tokenId);
+    return (approved,);
+}
 
 @view
-func tokenURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tokenId : Uint256
-) -> (tokenURI : felt):
-    let (tokenURI : felt) = ERC721_tokenURI(tokenId)
-    return (tokenURI)
-end
+func isApprovedForAll{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    owner: felt, operator: felt
+) -> (isApproved: felt) {
+    let (isApproved: felt) = ERC721_isApprovedForAll(owner, operator);
+    return (isApproved,);
+}
 
 @view
-func paused{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (paused : felt):
-    let (paused) = Pausable_paused.read()
-    return (paused)
-end
+func tokenURI{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    tokenId: Uint256
+) -> (tokenURI: felt) {
+    let (tokenURI: felt) = ERC721_tokenURI(tokenId);
+    return (tokenURI,);
+}
 
-#
-# Externals
-#
+@view
+func paused{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (paused: felt) {
+    let (paused) = Pausable_paused.read();
+    return (paused,);
+}
+
+//
+// Externals
+//
 
 @external
-func approve{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    to : felt, tokenId : Uint256
-):
-    Pausable_when_not_paused()
-    ERC721_approve(to, tokenId)
-    return ()
-end
+func approve{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+    to: felt, tokenId: Uint256
+) {
+    Pausable_when_not_paused();
+    ERC721_approve(to, tokenId);
+    return ();
+}
 
 @external
-func setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    operator : felt, approved : felt
-):
-    Pausable_when_not_paused()
-    ERC721_setApprovalForAll(operator, approved)
-    return ()
-end
+func setApprovalForAll{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    operator: felt, approved: felt
+) {
+    Pausable_when_not_paused();
+    ERC721_setApprovalForAll(operator, approved);
+    return ();
+}
 
 @external
-func transferFrom{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    _from : felt, to : felt, tokenId : Uint256
-):
-    Pausable_when_not_paused()
-    ERC721_transferFrom(_from, to, tokenId)
-    return ()
-end
+func transferFrom{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+    _from: felt, to: felt, tokenId: Uint256
+) {
+    Pausable_when_not_paused();
+    ERC721_transferFrom(_from, to, tokenId);
+    return ();
+}
 
 @external
-func safeTransferFrom{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    _from : felt, to : felt, tokenId : Uint256, data_len : felt, data : felt*
-):
-    Pausable_when_not_paused()
-    ERC721_safeTransferFrom(_from, to, tokenId, data_len, data)
-    return ()
-end
+func safeTransferFrom{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+    _from: felt, to: felt, tokenId: Uint256, data_len: felt, data: felt*
+) {
+    Pausable_when_not_paused();
+    ERC721_safeTransferFrom(_from, to, tokenId, data_len, data);
+    return ();
+}
 
 @external
-func mint{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    to : felt, tokenId : Uint256
-):
-    Pausable_when_not_paused()
-    Ownable_only_owner()
-    ERC721_mint(to, tokenId)
-    return ()
-end
+func mint{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+    to: felt, tokenId: Uint256
+) {
+    Pausable_when_not_paused();
+    Ownable_only_owner();
+    ERC721_mint(to, tokenId);
+    return ();
+}
 
 @external
-func setTokenURI{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-    tokenId : Uint256, tokenURI : felt
-):
-    Ownable_only_owner()
-    ERC721_setTokenURI(tokenId, tokenURI)
-    return ()
-end
+func setTokenURI{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+    tokenId: Uint256, tokenURI: felt
+) {
+    Ownable_only_owner();
+    ERC721_setTokenURI(tokenId, tokenURI);
+    return ();
+}
 
 @external
-func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable_only_owner()
-    Pausable_pause()
-    return ()
-end
+func pause{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    Ownable_only_owner();
+    Pausable_pause();
+    return ();
+}
 
 @external
-func unpause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable_only_owner()
-    Pausable_unpause()
-    return ()
-end
+func unpause{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    Ownable_only_owner();
+    Pausable_unpause();
+    return ();
+}
