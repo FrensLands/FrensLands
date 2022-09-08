@@ -281,6 +281,14 @@ func has_write_access{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (1,);
 }
 
+@view
+func  get_map_tokenId_by_game{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    game_contract: felt
+) -> (tokenId: Uint256) {
+    let (tokenId) = map_id_by_game.read(game_contract);
+    return (tokenId,);
+}
+
 //####################
 // PRIVATE FUNCTIONS #
 //####################
