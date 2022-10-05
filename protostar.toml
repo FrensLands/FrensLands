@@ -1,0 +1,38 @@
+["protostar.config"]
+protostar_version = "0.3.3"
+
+["protostar.project"]
+libs_path = "./lib"
+
+["protostar.shared_command_configs"]
+cairo_path = ["./"]
+disable_hint_validation = true
+
+["protostar.contracts"]
+frenslands = [
+    "contracts/FrensLands.cairo",
+]
+storage = [
+    "contracts/FrensLands_Storage.cairo",
+]
+maps = [
+    "contracts/tokens/Maps_ERC721_enumerable_mintable_burnable.cairo",
+]
+minter = [
+    "contracts/tokens/Minter_Maps_ERC721.cairo",
+]
+modulecontroller = [
+    "contracts/ModuleController.cairo",
+]
+arbiter = [
+    "contracts/Arbiter.cairo",
+]
+resources = [
+    "contracts/Resources/Resources.cairo",
+]
+buildings = [
+    "contracts/Buildings/Buildings.cairo",
+]
+account = [
+    "lib/openzeppelin/account/presets/Account.cairo",
+]

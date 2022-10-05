@@ -148,3 +148,10 @@ __pycache__
 
 #Starknet plugin
 starknet-artifacts
+
+build/
+lib/
+
+contracts/FL_new.cairo
+storage_var.txt
+scripts/

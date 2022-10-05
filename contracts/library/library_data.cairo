@@ -1,129 +1,75 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.starknet.common.syscalls import get_caller_address
-from starkware.cairo.common.math_cmp import is_not_zero, is_nn_le
-from contracts.utils.bArray import bArray
 from starkware.cairo.common.alloc import alloc
+from starkware.starknet.common.syscalls import get_caller_address
+from starkware.cairo.common.registers import get_label_location
+from starkware.cairo.common.math import unsigned_div_rem
+from contracts.utils.game_constants import BLOCK_DATA
 
-from contracts.utils.interfaces import IModuleController
+namespace Data {
 
-namespace Data:
-    # @notice Decompose a chain of numbers stored in a felt
-    # @dev
-    # @param bArr multiplyer based on utils/bArr.cairo. For a 16 characters start at 0, 15 start at 1, etc.
-    # @param NumChar number of characters to decompose
-    # @param comp the chain to decompose
-    func _decompose{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        bArr : felt,
-        numChar : felt,
-        comp : felt,
-        ret_array : felt*,
-        index : felt,
-        i : felt,
-        tempRes : felt,
-    ):
-        alloc_locals
+    // @notice Decompose a chain of numbers stored in a felt
+    // @param comp : chain to decompose
+    func _decompose_resources{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+        comp: felt, ret_array: felt*, ret_array_len : felt
+    ) -> (ret_array_len: felt){
+        alloc_locals;
 
-        let res = comp - ((index * bArr) + tempRes)
+        if (comp == 0) {
+            return(ret_array_len,);
+        }
 
-        # %{ print ('iteration : ', ids.i) %}
-        # %{ print ('index : ', ids.index) %}
-        # %{ print ('res : ', ids.res) %}
-        # %{ print ('tempRes : ', ids.tempRes) %}
-        # %{ print ('bArr : ', ids.bArr) %}
+        let (q, r) = unsigned_div_rem(comp, 1000);
+        let (resource_id, resource_qty) = unsigned_div_rem(r, 100);
+        ret_array[0] = resource_id;
+        ret_array[1] = resource_qty;
 
-        let (check) = is_nn_le(res, bArr)
-        # %{ print ('check : ', ids.check) %}
+        return _decompose_resources(q, ret_array + 2, ret_array_len + 2);
+    }
 
-        if i == numChar - 1:
-            assert ret_array[0] = res
-            return ()
-        end
+    // @notice Decompose block information on map
+    // @param comp the chain to decompose
+    // @param ret_array : array filled with data
+    // @param index : start at 0, will run until BLOCK_DATA is reached
+    func _decompose_all_block{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+        comp: felt, ret_array: felt*, index: felt
+    ) {
+        alloc_locals;
 
-        if (bArr - res) == 0:
-            assert ret_array[0] = 1
-            local new_temp = tempRes + (ret_array[0] * bArr)
-            return _decompose(bArr, numChar, comp, ret_array + 1, 0, i + 1, new_temp)
-        end
+        if(index == BLOCK_DATA - 1){
+            ret_array[0] = comp;
+            return ();
+        }
 
-        if check == 1:
-            assert ret_array[0] = index
-            local new_temp = tempRes + (ret_array[0] * bArr)
-            local b_index = 16 - numChar + (i + 1)
-            let (local bArr) = bArray(b_index)
-            return _decompose(bArr, numChar, comp, ret_array + 1, 0, i + 1, new_temp)
-        else:
-            return _decompose(bArr, numChar, comp, ret_array, index + 1, i, tempRes)
-        end
-    end
+        let (divider) = _get_block_divider(index);
+        let (q, r) = unsigned_div_rem(comp, divider);
 
-    func _compose_costs{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        num_resources : felt, values : felt*, costs : felt*
-    ):
-        if num_resources == 0:
-            return ()
-        end
+        ret_array[0] = q;
 
-        assert costs[0] = values[0]
-        assert costs[1] = (values[1] * 10) + values[2]
+        return _decompose_all_block(r, ret_array + 1, index + 1);
+    }
 
-        return _compose_costs(num_resources - 1, values + 3, costs + 2)
-    end
+    func _get_block_divider(idx: felt) -> (land: felt) {
+        let (l) = get_label_location(block_divider);
+        let arr = cast(l, felt*);
+        return (arr[idx],);
 
-    func _compose_chain{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        num_char : felt, values : felt*
-    ) -> (res : felt):
-        let comp = (1000000000000000 * values[0]) + (100000000000000 * values[1]) + (10000000000000 * values[2]) + (1000000000000 * values[3]) + (100000000000 * values[4]) + (10000000000 * values[5]) + (1000000000 * values[6]) + (100000000 * values[7]) + (10000000 * values[8]) + (1000000 * values[9]) + (100000 * values[10]) + (10000 * values[11]) + (1000 * values[12]) + (100 * values[13]) + (10 * values[14]) + values[15]
+        block_divider:        
+        dw 10000000000;
+        dw 100000000;
+        dw 10000;
+        dw 1000;
+        dw 100;
+    }
 
-        return (comp)
-    end
-
-    func _compose_chain_destroyed{
-        pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr
-    }(num_char : felt, values : felt*) -> (res : felt):
-        let comp = (1000000000000000 * values[0]) + (100000000000000 * values[1]) + (10000000000000 * values[2]) + (1000000000000 * values[3]) + (100000000000 * values[4]) + (100000 * values[10]) + (10000 * values[11]) + (1000 * values[12]) + (100 * values[13]) + (10 * 1) + values[15]
-
-        return (comp)
-    end
-
-    func _compose_chain_build{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        num_char : felt,
-        values : felt*,
-        building_type_id : felt,
-        building_unique_id : felt,
-        allocated_population : felt,
-        level : felt,
-    ) -> (res : felt):
-        let comp = (1000000000000000 * values[0]) + (100000000000000 * values[1]) + (10000000000000 * values[2]) + (1000000000000 * values[3]) + (100000000000 * values[4]) + (1000000000 * building_type_id) + (1000000 * building_unique_id) + (100000 * 8) + (10000 * 8) + (100 * allocated_population) + (10 * level) + values[15]
-
-        return (comp)
-    end
-
-    func _get_costs_from_chain{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        nb_resources : felt, resources_qty : felt
-    ) -> (ret_array_len : felt, ret_array : felt*):
-        alloc_locals
-
-        let (local ret_array : felt*) = alloc()
-
-        local b_index = 16 - (nb_resources * 3)
-        let (local bArr) = bArray(b_index)
-
-        Data._decompose(bArr, nb_resources * 3, resources_qty, ret_array, 0, 0, 0)
-
-        let (local costs : felt*) = alloc()
-        Data._compose_costs(nb_resources, ret_array, costs)
-
-        return (nb_resources * 2, costs)
-    end
-
-    func _compose_chain_harvest{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        num_char : felt, values : felt*, level : felt
-    ) -> (res : felt):
-        let comp = (1000000000000000 * values[0]) + (100000000000000 * values[1]) + (10000000000000 * values[2]) + (1000000000000 * values[3]) + (100000000000 * values[4]) + (10000000000 * values[5]) + (1000000000 * values[6]) + (100000000 * values[7]) + (10000000 * values[8]) + (1000000 * values[9]) + (100000 * values[10]) + (10000 * values[11]) + (1000 * values[12]) + (100 * values[13]) + (10 * level) + values[15]
-
-        return (comp)
-    end
-end
+    func _compose_chain{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(
+        infra_type: felt,
+        type_id: felt,
+        uid: felt,
+        level: felt
+    ) -> (res: felt) {
+        let comp = (10000000000 * infra_type) + (100000000 * type_id) + (10000 * uid) + (1000 * level) + (100 * 1) + (1 * 99);
+        return (comp,);
+    }
+}

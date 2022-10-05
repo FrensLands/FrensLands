@@ -18,7 +18,7 @@
   "homepage": "https://github.com/irisdv/hackathon-cairo#readme",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.6",
-    "@shardlabs/starknet-hardhat-plugin": "^0.6.0",
+    "@shardlabs/starknet-hardhat-plugin": "^0.6.6",
     "@types/chai": "^4.3.1",
     "@types/mocha": "^9.1.1",
     "chai": "^4.3.6",

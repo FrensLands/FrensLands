@@ -1,1 +1,1 @@
-# hackathon-cairo
+# Frens Lands contracts
